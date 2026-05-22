@@ -38,7 +38,8 @@ class ServerInfoViewController: UIViewController {
     
 
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        if segue.identifier == "StartMultiplayerGameSegue" {
+        if segue.identifier == "StartMultiplayerGameSegue", let server = server {
+            GameSession.configureForMultiplayer(server: server)
             (segue.destination as! GameViewController).selectedServer = server
         }
     }

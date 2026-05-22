@@ -21,6 +21,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "tr_local.h"
 
+#ifdef IOS
+#include "../sys/sys_local.h"
+#endif
+
 /*
 =====================
 R_PerformanceCounters
@@ -204,6 +208,75 @@ void	RE_SetColor( const float *rgba ) {
 	cmd->color[3] = rgba[3];
 }
 
+
+#ifdef IOS
+static void RE_StretchPicPhysical( float x, float y, float w, float h,
+		float s1, float t1, float s2, float t2, qhandle_t hShader ) {
+	stretchPicCommand_t	*cmd;
+
+	if ( !tr.registered ) {
+		return;
+	}
+	cmd = R_GetCommandBuffer( sizeof( *cmd ) );
+	if ( !cmd ) {
+		return;
+	}
+	cmd->commandId = RC_STRETCH_PIC;
+	cmd->shader = R_GetShaderByHandle( hShader );
+	cmd->x = x;
+	cmd->y = y;
+	cmd->w = w;
+	cmd->h = h;
+	cmd->s1 = s1;
+	cmd->t1 = t1;
+	cmd->s2 = s2;
+	cmd->t2 = t2;
+}
+
+static void RE_IOS_DrawLetterbox( void ) {
+	static qhandle_t letterboxShader;
+	float black[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	int vx, vy, vw, vh;
+	int W, H;
+
+	if ( !tr.registered ) {
+		return;
+	}
+
+	W = glConfig.vidWidth;
+	H = glConfig.vidHeight;
+	if ( W <= 0 || H <= 0 ) {
+		return;
+	}
+
+	Sys_UpdateViewport4x3( W, H );
+	Sys_GetViewport4x3( &vx, &vy, &vw, &vh );
+	if ( vw <= 0 || vh <= 0 ) {
+		return;
+	}
+
+	if ( !letterboxShader ) {
+		letterboxShader = RE_RegisterShader( "white" );
+	}
+
+	RE_SetColor( black );
+
+	if ( vy > 0 ) {
+		RE_StretchPicPhysical( 0, 0, W, vy, 0, 0, 0, 0, letterboxShader );
+	}
+	if ( vy + vh < H ) {
+		RE_StretchPicPhysical( 0, vy + vh, W, H - ( vy + vh ), 0, 0, 0, 0, letterboxShader );
+	}
+	if ( vx > 0 ) {
+		RE_StretchPicPhysical( 0, vy, vx, vh, 0, 0, 0, 0, letterboxShader );
+	}
+	if ( vx + vw < W ) {
+		RE_StretchPicPhysical( vx + vw, vy, W - ( vx + vw ), vh, 0, 0, 0, 0, letterboxShader );
+	}
+
+	RE_SetColor( NULL );
+}
+#endif
 
 /*
 =============
@@ -461,8 +534,12 @@ void RE_BeginFrame( stereoFrame_t stereoFrame ) {
 				cmd->buffer = (int)GL_BACK;
 		}
 	}
-	
+
 	tr.refdef.stereoFrame = stereoFrame;
+
+#ifdef IOS
+	RE_IOS_DrawLetterbox();
+#endif
 }
 
 

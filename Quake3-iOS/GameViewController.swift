@@ -13,186 +13,225 @@ import CoreMotion
 #endif
 
 class GameViewController: UIViewController {
-    
+
+    private static var engineRunning = false
+
     var selectedMap = ""
-    
-    var selectedServer:Server?
-    
+    var selectedServer: Server?
     var selectedDifficulty = 0
-    
     var botMatch = false
-    var botSkill = 3.0
-    
+    var botSkill: Float = 3
     var timeLimit = 0
     var fragLimit = 20
-
     var bots = [(name: String, skill: Float, icon: String)]()
-    
+
+    private var hasStartedEngine = false
+
     let defaults = UserDefaults()
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        applySessionIfNeeded()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleReturnToMainMenu),
+            name: .quakeReturnToMainMenu,
+            object: nil
+        )
+    }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func handleReturnToMainMenu() {
+        navigationController?.popViewController(animated: true)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        applySessionIfNeeded()
+        if GameViewController.engineRunning {
+            startQuakeEngine()
+            return
+        }
+        guard !hasStartedEngine else { return }
+        hasStartedEngine = true
+        startQuakeEngine()
+    }
+
+    private func applySessionIfNeeded() {
+        guard !GameSession.map.isEmpty || GameSession.server != nil || GameSession.botMatch else {
+            return
+        }
+        selectedMap = GameSession.map
+        selectedDifficulty = GameSession.difficulty
+        botMatch = GameSession.botMatch
+        botSkill = GameSession.botSkill
+        bots = GameSession.bots
+        fragLimit = GameSession.fragLimit
+        timeLimit = GameSession.timeLimit
+        selectedServer = GameSession.server
+    }
+
+    private func startQuakeEngine() {
         #if os(tvOS)
         let documentsDir = try! FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
         #else
         let documentsDir = try! FileManager().url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
         #endif
-        
+
         Sys_SetHomeDir(documentsDir)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
 
-        var argv: [String?] = [ Bundle.main.resourcePath! + "/quake3", "+set", "com_basegame", "baseq3", "+name", self.defaults.string(forKey: "playerName")]
+        let resourcePath = Bundle.main.resourcePath!
+        let mapName = selectedMap.lowercased()
+        let playerName = defaults.string(forKey: "playerName") ?? "unnamedPlayer"
 
-            if !self.selectedMap.isEmpty {
-                if self.botMatch {
-                    argv.append("+map")
-                } else {
-                    argv.append("+spmap")
-                }
-                argv.append(self.selectedMap)
+        if !botMatch && selectedServer == nil && mapName.isEmpty {
+            presentMapAlert(
+                title: "Carte introuvable",
+                message: "Aucune carte n'a été sélectionnée. Reviens en arrière et choisis une arène."
+            )
+            return
+        }
 
-                if !self.botMatch {
-                    argv.append("+g_spSkill")
-                    argv.append(String(self.selectedDifficulty))
-                }
-                
-                // For single-player, we turn off pure servers so the absolute
-                // cursor positioning can work in-game
-                argv.append("+set")
-                argv.append("sv_pure")
-                argv.append("0")
-            }
-                
-            if self.selectedServer != nil {
-                argv.append("+connect")
-                argv.append("\(self.selectedServer!.ip):\(self.selectedServer!.port)")
-            }
-            
-            if self.botMatch {                
-                for bot in self.bots {
-                    argv.append("+addbot")
-                    argv.append(bot.name)
-                    argv.append(String(self.botSkill))
-                }
-                
-                argv.append("+set")
-                argv.append("timelimit")
-                argv.append(String(self.timeLimit))
-                
-                argv.append("+set")
-                argv.append("fraglimit")
-                argv.append(String(self.fragLimit))
+        if !mapName.isEmpty && !MapCatalog.isMapAvailable(mapName, bundleResourcePath: resourcePath) {
+            presentMapAlert(
+                title: "Carte non installée",
+                message: "La carte \(mapName.uppercased()) n'est pas dans les fichiers baseq3 (pak0.pk3, etc.). Installe les données complètes de Quake III Arena ou choisis une autre carte."
+            )
+            return
+        }
 
-            }
-            
-            // not sure if needed
-            argv.append("+set")
-            argv.append("r_useOpenGLES")
-            argv.append("1")
-            
-            let screenBounds = UIScreen.main.bounds
-            let screenScale:CGFloat = UIScreen.main.scale
-            let screenSize = CGSize(width: screenBounds.size.width * screenScale, height: screenBounds.size.height * screenScale)
+        if GameViewController.engineRunning {
+            loadMapInRunningEngine(mapName: mapName, resourcePath: resourcePath)
+            return
+        }
+        GameViewController.engineRunning = true
 
-            argv.append("+set")
-            argv.append("r_mode")
-            argv.append("-1")
+        var argv: [String?] = [
+            resourcePath + "/quake3",
+            "+set", "fs_basepath", resourcePath,
+            "+set", "com_basegame", "baseq3",
+            "+set", "dedicated", "0",
+            "+name", playerName
+        ]
 
-            argv.append("+set")
-            argv.append("r_customwidth")
-            argv.append("\(screenSize.width)")
+        appendMapLaunchCommands(to: &argv, mapName: mapName)
 
-            argv.append("+set")
-            argv.append("r_customheight")
-            argv.append("\(screenSize.height)")
+        if let server = selectedServer {
+            argv.append(contentsOf: [
+                "+connect", "\(server.ip):\(server.port)"
+            ])
+        }
 
-            argv.append("+set")
-            argv.append("s_sdlSpeed")
-            argv.append("44100")
-            
-            argv.append("+set")
-            argv.append("r_useHiDPI")
-            argv.append("1")
-            
-            argv.append("+set")
-            argv.append("r_fullscreen")
-            argv.append("1")
-            
-            argv.append("+set")
-            argv.append("in_joystick")
-            argv.append("1")
-            
-            argv.append("+set")
-            argv.append("in_joystickUseAnalog")
-            argv.append("1")
-            
-            argv.append("+bind")
-            argv.append("PAD0_RIGHTTRIGGER")
-            argv.append("\"+attack\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_LEFTSTICK_UP")
-            argv.append("\"+forward\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_LEFTSTICK_DOWN")
-            argv.append("\"+back\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_LEFTSTICK_LEFT")
-            argv.append("\"+moveleft\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_LEFTSTICK_RIGHT")
-            argv.append("\"+moveright\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_RIGHTSTICK_UP")
-            argv.append("\"+lookup\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_RIGHTSTICK_DOWN")
-            argv.append("\"+lookdown\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_RIGHTSTICK_LEFT")
-            argv.append("\"+left\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_RIGHTSTICK_RIGHT")
-            argv.append("\"+right\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_A")
-            argv.append("\"+moveup\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_LEFTSHOULDER")
-            argv.append("\"weapnext\"")
-            
-            argv.append("+bind")
-            argv.append("PAD0_RIGHTSHOULDER")
-            argv.append("\"weapprev\"")
-            
-            #if DEBUG
-            argv.append("+set")
-            argv.append("developer")
-            argv.append("1")
-            #endif
-            
-            argv.append(nil)
-            
-            let argc:Int32 = Int32(argv.count - 1)
-            var cargs = argv.map { $0.flatMap { UnsafeMutablePointer<Int8>(strdup($0)) } }
-            
-            Sys_Startup(argc, &cargs)
-            
-            for ptr in cargs { free(UnsafeMutablePointer(mutating: ptr)) }
+        appendControlAndVideoSettings(to: &argv, resourcePath: resourcePath)
+
+        argv.append(nil)
+
+        let argc = Int32(argv.count - 1)
+        var cargs = argv.map { $0.flatMap { UnsafeMutablePointer<Int8>(strdup($0)) } }
+
+        Sys_Startup(argc, &cargs)
+        for ptr in cargs {
+            free(UnsafeMutablePointer(mutating: ptr))
         }
     }
-    
+
+    private func loadMapInRunningEngine(mapName: String, resourcePath: String) {
+        guard !mapName.isEmpty else { return }
+
+        Cbuf_AddText("disconnect\n")
+        Cbuf_Execute()
+
+        if botMatch {
+            Cbuf_AddText("wait ; wait ; map \(mapName) ; set sv_pure 0\n")
+            for bot in bots {
+                let skill = max(1, min(5, bot.skill))
+                Cbuf_AddText("addbot \(bot.name) \(skill)\n")
+            }
+            Cbuf_AddText("set timelimit \(timeLimit)\n")
+            Cbuf_AddText("set fraglimit \(fragLimit)\n")
+        } else if selectedServer == nil {
+            let skill = max(1, selectedDifficulty)
+            Cbuf_AddText("set g_spSkill \(skill)\n")
+            Cbuf_AddText("map \(mapName)\n")
+            Cbuf_AddText("set sv_pure 0\n")
+        }
+        Cbuf_Execute()
+    }
+
+    private func appendMapLaunchCommands(to argv: inout [String?], mapName: String) {
+        guard !mapName.isEmpty else { return }
+
+        if botMatch {
+            argv.append(contentsOf: ["+map", mapName, "+set", "sv_pure", "0"])
+            for bot in bots where !bot.name.isEmpty {
+                let skill = max(1, min(5, bot.skill))
+                argv.append(contentsOf: ["+addbot", bot.name, String(skill)])
+            }
+            argv.append(contentsOf: [
+                "+set", "timelimit", String(timeLimit),
+                "+set", "fraglimit", String(fragLimit)
+            ])
+        } else if selectedServer == nil {
+            // Même chemin que Bot Match (+map) : +spmap laissait le client sur le menu Quake.
+            let skill = max(1, selectedDifficulty)
+            argv.append(contentsOf: [
+                "+set", "g_spSkill", String(skill),
+                "+map", mapName,
+                "+set", "sv_pure", "0",
+                "+set", "r_uiFullScreen", "0"
+            ])
+        }
+    }
+
+    private func appendControlAndVideoSettings(to argv: inout [String?], resourcePath: String) {
+        _ = resourcePath
+        argv.append(contentsOf: ["+set", "r_useOpenGLES", "1", "+set", "r_mode", "-1"])
+
+        let screenBounds = UIScreen.main.bounds
+        let screenScale = UIScreen.main.scale
+        let screenSize = CGSize(
+            width: screenBounds.size.width * screenScale,
+            height: screenBounds.size.height * screenScale
+        )
+
+        argv.append(contentsOf: [
+            "+set", "r_customwidth", "\(Int(screenSize.width))",
+            "+set", "r_customheight", "\(Int(screenSize.height))",
+            "+set", "s_sdlSpeed", "44100",
+            "+set", "r_useHiDPI", "1",
+            "+set", "r_fullscreen", "1",
+            "+set", "in_joystick", "1",
+            "+set", "in_joystickUseAnalog", "1",
+            "+bind", "PAD0_RIGHTTRIGGER", "\"+attack\"",
+            "+bind", "PAD0_LEFTSTICK_UP", "\"+forward\"",
+            "+bind", "PAD0_LEFTSTICK_DOWN", "\"+back\"",
+            "+bind", "PAD0_LEFTSTICK_LEFT", "\"+moveleft\"",
+            "+bind", "PAD0_LEFTSTICK_RIGHT", "\"+moveright\"",
+            "+bind", "PAD0_RIGHTSTICK_UP", "\"+lookup\"",
+            "+bind", "PAD0_RIGHTSTICK_DOWN", "\"+lookdown\"",
+            "+bind", "PAD0_RIGHTSTICK_LEFT", "\"+left\"",
+            "+bind", "PAD0_RIGHTSTICK_RIGHT", "\"+right\"",
+            "+bind", "PAD0_A", "\"+moveup\"",
+            "+bind", "PAD0_LEFTSHOULDER", "\"weapnext\"",
+            "+bind", "PAD0_RIGHTSHOULDER", "\"weapprev\""
+        ])
+
+        #if DEBUG
+        argv.append(contentsOf: ["+set", "developer", "1"])
+        #endif
+    }
+
+    private func presentMapAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+            self?.navigationController?.popViewController(animated: true)
+        })
+        present(alert, animated: true)
+    }
+
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
     }

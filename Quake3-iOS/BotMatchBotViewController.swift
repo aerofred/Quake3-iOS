@@ -77,7 +77,8 @@ class BotMatchBotViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+        okButton.isEnabled = false
+
         #if os(tvOS)
         let documentsDir = try! FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
         #else
@@ -132,12 +133,13 @@ class BotMatchBotViewController: UIViewController {
     }
     
     @IBAction func ok(_ sender: UIButton) {
-        
+        guard !selectedBot.isEmpty else { return }
+
         for _ in 0..<botQuantity {
-            self.delegate?.addBot(bot: selectedBot, difficulty: difficulty, icon: selectedIcon)
+            delegate?.addBot(bot: selectedBot, difficulty: difficulty, icon: selectedIcon)
         }
-        
-        self.dismiss(animated: true, completion: nil)
+
+        dismiss(animated: true, completion: nil)
     }
     
     func clearSkills(_ sender: UIButton) {

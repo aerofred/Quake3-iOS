@@ -515,6 +515,10 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder, qbool
 	}
 	ri.Printf( PRINT_ALL, " %d %d\n", glConfig.vidWidth, glConfig.vidHeight);
 
+#ifdef IOS
+	Sys_UpdateViewport4x3( glConfig.vidWidth, glConfig.vidHeight );
+#endif
+
 	// Center window
 	if( r_centerWindow->integer && !fullscreen )
 	{
@@ -1259,6 +1263,7 @@ void GLimp_EndFrame( void )
 	}
     
     #ifdef IOS
+        Sys_UpdateViewport4x3( glConfig.vidWidth, glConfig.vidHeight );
         Sys_ToggleControls(SDL_window);
     #endif
     

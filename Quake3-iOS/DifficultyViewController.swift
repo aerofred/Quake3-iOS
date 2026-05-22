@@ -40,14 +40,18 @@ class DifficultyViewController: UIViewController {
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        (segue.destination as! GameViewController).selectedMap = selectedMap
-        (segue.destination as! GameViewController).selectedDifficulty = selectedDifficulty
+        guard segue.identifier == "GameSegue",
+              let gameVC = segue.destination as? GameViewController else {
+            return
+        }
+        GameSession.configureForSinglePlayer(map: selectedMap, difficulty: selectedDifficulty)
+        gameVC.selectedMap = selectedMap
+        gameVC.selectedDifficulty = selectedDifficulty
+        gameVC.botMatch = false
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        // Do any additional setup after loading the view.
     }
 
     override func didReceiveMemoryWarning() {

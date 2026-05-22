@@ -59,6 +59,16 @@ char *Sys_DefaultLibraryPath(void);
 void Sys_SetHomeDir( const char *newHomeDir );
 void Sys_AddControls(SDL_Window *sdlWindow);
 void Sys_ToggleControls(SDL_Window *sdlWindow);
+void Sys_ShowPauseMenu( qboolean visible );
+void Sys_UpdateViewport4x3( int vidWidth, int vidHeight );
+void Sys_GetViewport4x3( int *x, int *y, int *width, int *height );
+void Sys_GetViewport640Mapping( float *xscale, float *yscale, float *xbias, float *ybias );
+void Sys_RemapFullscreenStretchPic( float *x, float *y, float *w, float *h, int vidWidth, int vidHeight );
+void Sys_SetSafeAreaInsets( int top, int left, int bottom, int right );
+int Sys_SafeAreaTop( void );
+int Sys_SafeAreaLeft( void );
+int Sys_SafeAreaBottom( void );
+int Sys_SafeAreaRight( void );
 #endif
 #endif
 

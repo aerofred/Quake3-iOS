@@ -833,7 +833,11 @@ intptr_t CL_UISystemCalls( intptr_t *args ) {
 		return 0;
 
 	case UI_R_RENDERSCENE:
+#ifdef IOS
+		CL_IOS_RenderScene( VMA(1) );
+#else
 		re.RenderScene( VMA(1) );
+#endif
 		return 0;
 
 	case UI_R_SETCOLOR:
@@ -841,7 +845,19 @@ intptr_t CL_UISystemCalls( intptr_t *args ) {
 		return 0;
 
 	case UI_R_DRAWSTRETCHPIC:
+#ifdef IOS
+		{
+			float x = VMF(1);
+			float y = VMF(2);
+			float w = VMF(3);
+			float h = VMF(4);
+
+			CL_IOS_AdjustStretchPicFromVM( &x, &y, &w, &h );
+			re.DrawStretchPic( x, y, w, h, VMF(5), VMF(6), VMF(7), VMF(8), args[9] );
+		}
+#else
 		re.DrawStretchPic( VMF(1), VMF(2), VMF(3), VMF(4), VMF(5), VMF(6), VMF(7), VMF(8), args[9] );
+#endif
 		return 0;
 
   case UI_R_MODELBOUNDS:

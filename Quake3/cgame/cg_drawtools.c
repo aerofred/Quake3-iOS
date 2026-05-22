@@ -23,6 +23,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // cg_drawtools.c -- helper functions called by cg_draw, cg_scoreboard, cg_info, etc
 #include "cg_local.h"
 
+#ifdef IOS
+extern int Sys_SafeAreaTop( void );
+extern int Sys_SafeAreaLeft( void );
+extern int Sys_SafeAreaBottom( void );
+extern int Sys_SafeAreaRight( void );
+#endif
+
 /*
 ================
 CG_AdjustFrom640
@@ -31,17 +38,34 @@ Adjusted for resolution and screen aspect ratio
 ================
 */
 void CG_AdjustFrom640( float *x, float *y, float *w, float *h ) {
+	float xscale;
+	float yscale;
+	float xbias = 0.0f;
+	float ybias = 0.0f;
+
 #if 0
 	// adjust for wide screens
 	if ( cgs.glconfig.vidWidth * 480 > cgs.glconfig.vidHeight * 640 ) {
 		*x += 0.5 * ( cgs.glconfig.vidWidth - ( cgs.glconfig.vidHeight * 640 / 480 ) );
 	}
 #endif
+
+#ifdef IOS
+	Sys_UpdateViewport4x3( cgs.glconfig.vidWidth, cgs.glconfig.vidHeight );
+	Sys_GetViewport640Mapping( &xscale, &yscale, &xbias, &ybias );
+#else
+	{
+		xscale = cgs.screenXScale;
+		yscale = cgs.screenYScale;
+		xbias = cgs.screenXBias;
+	}
+#endif
+
 	// scale for screen sizes
-	*x *= cgs.screenXScale;
-	*y *= cgs.screenYScale;
-	*w *= cgs.screenXScale;
-	*h *= cgs.screenYScale;
+	*x = xbias + *x * xscale;
+	*y = ybias + *y * yscale;
+	*w *= xscale;
+	*h *= yscale;
 }
 
 /*
@@ -291,11 +315,14 @@ Clear around a sized down screen
 void CG_TileClear( void ) {
 	int		top, bottom, left, right;
 	int		w, h;
+#ifdef IOS
+	static const vec4_t letterboxColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+#endif
 
 	w = cgs.glconfig.vidWidth;
 	h = cgs.glconfig.vidHeight;
 
-	if ( cg.refdef.x == 0 && cg.refdef.y == 0 && 
+	if ( cg.refdef.x == 0 && cg.refdef.y == 0 &&
 		cg.refdef.width == w && cg.refdef.height == h ) {
 		return;		// full screen rendering
 	}
@@ -305,17 +332,19 @@ void CG_TileClear( void ) {
 	left = cg.refdef.x;
 	right = left + cg.refdef.width-1;
 
-	// clear above view screen
+#ifdef IOS
+	trap_R_SetColor( letterboxColor );
+	CG_TileClearBox( 0, 0, w, top, cgs.media.whiteShader );
+	CG_TileClearBox( 0, bottom, w, h - bottom, cgs.media.whiteShader );
+	CG_TileClearBox( 0, top, left, bottom - top + 1, cgs.media.whiteShader );
+	CG_TileClearBox( right, top, w - right, bottom - top + 1, cgs.media.whiteShader );
+	trap_R_SetColor( NULL );
+#else
 	CG_TileClearBox( 0, 0, w, top, cgs.media.backTileShader );
-
-	// clear below view screen
 	CG_TileClearBox( 0, bottom, w, h - bottom, cgs.media.backTileShader );
-
-	// clear left of view screen
 	CG_TileClearBox( 0, top, left, bottom - top + 1, cgs.media.backTileShader );
-
-	// clear right of view screen
 	CG_TileClearBox( right, top, w - right, bottom - top + 1, cgs.media.backTileShader );
+#endif
 }
 
 
@@ -604,7 +633,7 @@ static void UI_DrawBannerString2( int x, int y, const char* str, vec4_t color )
 	trap_R_SetColor( color );
 	
 	ax = x * cgs.screenXScale + cgs.screenXBias;
-	ay = y * cgs.screenYScale;
+	ay = y * cgs.screenYScale + cgs.screenYBias;
 
 	s = str;
 	while ( *s )
@@ -714,7 +743,7 @@ static void UI_DrawProportionalString2( int x, int y, const char* str, vec4_t co
 	trap_R_SetColor( color );
 	
 	ax = x * cgs.screenXScale + cgs.screenXBias;
-	ay = y * cgs.screenYScale;
+	ay = y * cgs.screenYScale + cgs.screenYBias;
 
 	s = str;
 	while ( *s )

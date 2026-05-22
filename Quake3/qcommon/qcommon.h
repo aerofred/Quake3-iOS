@@ -993,6 +993,9 @@ void CL_CharEvent( int key );
 // char events are for field typing, not game control
 
 void CL_MouseEvent( int dx, int dy, int time, qboolean absolute );
+#ifdef IOS
+void CL_TouchEvent( int x, int y, int time );
+#endif
 
 void CL_JoystickEvent( int axis, int value, int time );
 

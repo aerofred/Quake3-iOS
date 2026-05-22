@@ -27,6 +27,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **********************************************************************/
 #include "ui_local.h"
 
+#ifdef IOS
+extern int Sys_SafeAreaTop( void );
+extern int Sys_SafeAreaLeft( void );
+extern int Sys_SafeAreaBottom( void );
+extern int Sys_SafeAreaRight( void );
+
+#define UI_TOUCH_HIT_PAD_X	24
+#define UI_TOUCH_HIT_PAD_Y	12
+#endif
+
 uiStatic_t		uis;
 qboolean		m_entersound;		// after a frame, so caching won't disrupt the sound
 
@@ -910,10 +920,17 @@ void UI_MouseEvent( int dx, int dy, qboolean absolute )
 		if (m->flags & (QMF_GRAYED|QMF_INACTIVE))
 			continue;
 
+#ifdef IOS
+		if ((uis.cursorx < m->left - UI_TOUCH_HIT_PAD_X) ||
+			(uis.cursorx > m->right + UI_TOUCH_HIT_PAD_X) ||
+			(uis.cursory < m->top - UI_TOUCH_HIT_PAD_Y) ||
+			(uis.cursory > m->bottom + UI_TOUCH_HIT_PAD_Y))
+#else
 		if ((uis.cursorx < m->left) ||
 			(uis.cursorx > m->right) ||
 			(uis.cursory < m->top) ||
 			(uis.cursory > m->bottom))
+#endif
 		{
 			// cursor out of item bounds
 			continue;
@@ -939,6 +956,53 @@ void UI_MouseEvent( int dx, int dy, qboolean absolute )
 		((menucommon_s*)(uis.activemenu->items[uis.activemenu->cursor]))->flags &= ~QMF_HASMOUSEFOCUS;
 	}
 }
+
+#ifdef IOS
+/*
+=================
+UI_TouchTap
+
+Activate the menu item under a screen tap (640x480 coords).
+=================
+*/
+void UI_TouchTap( int x, int y ) {
+	int				i;
+	menucommon_s	*m;
+	menuframework_s	*menu;
+	sfxHandle_t		s;
+
+	if ( !uis.activemenu ) {
+		return;
+	}
+
+	menu = uis.activemenu;
+	uis.cursorx = x;
+	uis.cursory = y;
+
+	for ( i = 0; i < menu->nitems; i++ ) {
+		m = (menucommon_s *)menu->items[i];
+
+		if ( m->flags & (QMF_GRAYED|QMF_INACTIVE) ) {
+			continue;
+		}
+
+		if ( x < m->left - UI_TOUCH_HIT_PAD_X ||
+			x > m->right + UI_TOUCH_HIT_PAD_X ||
+			y < m->top - UI_TOUCH_HIT_PAD_Y ||
+			y > m->bottom + UI_TOUCH_HIT_PAD_Y ) {
+			continue;
+		}
+
+		Menu_SetCursor( menu, i );
+		m->flags |= QMF_HASMOUSEFOCUS;
+		s = Menu_ActivateItem( menu, m );
+		if ( (s > 0) && (s != menu_null_sound) ) {
+			trap_S_StartLocalSound( s, CHAN_LOCAL_SOUND );
+		}
+		return;
+	}
+}
+#endif
 
 char *UI_Argv( int arg ) {
 	static char	buffer[MAX_STRING_CHARS];
@@ -1080,17 +1144,23 @@ void UI_Init( void ) {
 	trap_GetGlconfig( &uis.glconfig );
 
 	// for 640x480 virtualized screen
+#ifdef IOS
+	{
+		float ybias;
+
+		Sys_UpdateViewport4x3( uis.glconfig.vidWidth, uis.glconfig.vidHeight );
+		Sys_GetViewport640Mapping( &uis.xscale, &uis.yscale, &uis.bias, &ybias );
+	}
+#else
 	uis.xscale = uis.glconfig.vidWidth * (1.0/640.0);
 	uis.yscale = uis.glconfig.vidHeight * (1.0/480.0);
 	if ( uis.glconfig.vidWidth * 480 > uis.glconfig.vidHeight * 640 ) {
-		// wide screen
 		uis.bias = 0.5 * ( uis.glconfig.vidWidth - ( uis.glconfig.vidHeight * (640.0/480.0) ) );
 		uis.xscale = uis.yscale;
-	}
-	else {
-		// no wide screen
+	} else {
 		uis.bias = 0;
 	}
+#endif
 
 	// initialize the menu system
 	Menu_Cache();
@@ -1107,11 +1177,21 @@ Adjusted for resolution and screen aspect ratio
 ================
 */
 void UI_AdjustFrom640( float *x, float *y, float *w, float *h ) {
+	float xscale = uis.xscale;
+	float yscale = uis.yscale;
+	float xbias = uis.bias;
+	float ybias = 0.0f;
+
+#ifdef IOS
+	Sys_UpdateViewport4x3( uis.glconfig.vidWidth, uis.glconfig.vidHeight );
+	Sys_GetViewport640Mapping( &xscale, &yscale, &xbias, &ybias );
+#endif
+
 	// expect valid pointers
-	*x = *x * uis.xscale + uis.bias;
-	*y *= uis.yscale;
-	*w *= uis.xscale;
-	*h *= uis.yscale;
+	*x = *x * xscale + xbias;
+	*y = *y * yscale + ybias;
+	*w *= xscale;
+	*h *= yscale;
 }
 
 void UI_DrawNamedPic( float x, float y, float width, float height, const char *picname ) {
@@ -1236,9 +1316,11 @@ void UI_Refresh( int realtime )
 		}
 	}
 
+#ifndef IOS
 	// draw cursor
 	UI_SetColor( NULL );
 	UI_DrawHandlePic( uis.cursorx-16, uis.cursory-16, 32, 32, uis.cursor);
+#endif
 
 #ifndef NDEBUG
 	if (uis.debug)

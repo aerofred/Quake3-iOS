@@ -46,6 +46,36 @@ kbutton_t    in_strafe;
 
 void Sys_SetHomeDir( const char *newHomeDir );
 
+void Sys_SetSafeAreaInsets( int top, int left, int bottom, int right );
+void Sys_UpdateViewport4x3( int vidWidth, int vidHeight );
+void Sys_GetViewport4x3( int *x, int *y, int *width, int *height );
+int Sys_SafeAreaTop( void );
+int Sys_SafeAreaLeft( void );
+int Sys_SafeAreaBottom( void );
+int Sys_SafeAreaRight( void );
+
+void Cbuf_AddText( const char *text );
+void Cbuf_Execute( void );
+
 int Key_GetCatcher( void );
+
+void CL_OpenPauseMenu( void );
+void CL_ClosePauseMenu( void );
+int CL_IsPauseMenuOpen( void );
+void CL_RestartArena( void );
+void CL_LeaveArena( void );
+void CL_ExitGame( void );
+void CL_ExecuteConsole( const char *text );
+int CL_GetCvarInt( const char *name );
+void CL_GetCvarString( const char *name, char *out, int outSize );
+void CL_SetTeam( const char *team );
+void CL_SendTeamOrder( const char *message );
+int CL_CanManageBots( void );
+int CL_CanUseTeamOrders( void );
+void CL_BuildServerInfo( char *buf, int bufsize );
+void CL_AddBotCommand( const char *name, int skill );
+void CL_KickBotByName( const char *name );
+int CL_ConnectedBotCount( void );
+int CL_ConnectedBotName( int index, char *out, int outSize );
 
 #endif /* bridging_h */

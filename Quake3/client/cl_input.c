@@ -370,6 +370,306 @@ void CL_MouseEvent( int dx, int dy, int time, qboolean absolute ) {
 	}
 }
 
+#ifdef IOS
+
+static qboolean cl_iosPauseMenuOpen = qfalse;
+
+int CL_IsPauseMenuOpen( void ) {
+	return cl_iosPauseMenuOpen ? 1 : 0;
+}
+
+void CL_OpenPauseMenu( void ) {
+	cl_iosPauseMenuOpen = qtrue;
+	Cvar_Set( "cl_paused", "1" );
+	Key_SetCatcher( Key_GetCatcher() | KEYCATCH_UI );
+	Sys_ShowPauseMenu( qtrue );
+}
+
+void CL_ClosePauseMenu( void ) {
+	cl_iosPauseMenuOpen = qfalse;
+	Key_SetCatcher( Key_GetCatcher() & ~KEYCATCH_UI );
+	Key_ClearStates();
+	Cvar_Set( "cl_paused", "0" );
+	Sys_ShowPauseMenu( qfalse );
+}
+
+void CL_RestartArena( void ) {
+	CL_ClosePauseMenu();
+	Cbuf_AddText( "map_restart 0\n" );
+	Cbuf_Execute();
+}
+
+void CL_LeaveArena( void ) {
+	CL_ClosePauseMenu();
+	Cbuf_AddText( "disconnect\n" );
+	Cbuf_Execute();
+}
+
+void CL_ExitGame( void ) {
+	CL_ClosePauseMenu();
+	Cbuf_AddText( "disconnect\n" );
+	Cbuf_Execute();
+}
+
+void CL_ExecuteConsole( const char *text ) {
+	size_t len;
+
+	if ( !text || !text[0] ) {
+		return;
+	}
+
+	Cbuf_AddText( text );
+	len = strlen( text );
+	if ( len == 0 || text[len - 1] != '\n' ) {
+		Cbuf_AddText( "\n" );
+	}
+	Cbuf_Execute();
+}
+
+int CL_GetCvarInt( const char *name ) {
+	return Cvar_VariableIntegerValue( name );
+}
+
+void CL_GetCvarString( const char *name, char *out, int outSize ) {
+	if ( !out || outSize < 1 ) {
+		return;
+	}
+	Cvar_VariableStringBuffer( name, out, outSize );
+}
+
+void CL_SetTeam( const char *team ) {
+	char cmd[MAX_STRING_CHARS];
+
+	if ( !team || !team[0] ) {
+		return;
+	}
+
+	Com_sprintf( cmd, sizeof( cmd ), "cmd team %s\n", team );
+	CL_ExecuteConsole( cmd );
+}
+
+void CL_SendTeamOrder( const char *message ) {
+	char cmd[MAX_STRING_CHARS];
+
+	if ( !message || !message[0] ) {
+		return;
+	}
+
+	Com_sprintf( cmd, sizeof( cmd ), "say_team \"%s\"\n", message );
+	CL_ExecuteConsole( cmd );
+}
+
+int CL_CanManageBots( void ) {
+	if ( !Cvar_VariableIntegerValue( "sv_running" ) ) {
+		return 0;
+	}
+	if ( !Cvar_VariableIntegerValue( "bot_enable" ) ) {
+		return 0;
+	}
+	if ( Cvar_VariableIntegerValue( "g_gametype" ) == GT_SINGLE_PLAYER ) {
+		return 0;
+	}
+	return 1;
+}
+
+int CL_CanUseTeamOrders( void ) {
+	int gametype;
+
+	gametype = Cvar_VariableIntegerValue( "g_gametype" );
+	if ( gametype < GT_TEAM ) {
+		return 0;
+	}
+	return 1;
+}
+
+void CL_BuildServerInfo( char *buf, int bufsize ) {
+	char info[MAX_INFO_STRING];
+	const char *mapName;
+	const char *hostname;
+	int gametype;
+	int fraglimit;
+	int timelimit;
+	int maxclients;
+	int i;
+	int playerCount;
+	static const char *gametypeNames[] = {
+		"FFA",
+		"Tournoi",
+		"Solo",
+		"Équipes",
+		"CTF",
+		"Unilatéral",
+		"Domination"
+	};
+
+	if ( !buf || bufsize < 1 ) {
+		return;
+	}
+
+	buf[0] = '\0';
+	info[0] = '\0';
+
+	if ( cl.gameState.stringOffsets[CS_SERVERINFO] ) {
+		Q_strncpyz( info, cl.gameState.stringData + cl.gameState.stringOffsets[CS_SERVERINFO], sizeof( info ) );
+	}
+
+	mapName = Cvar_VariableString( "mapname" );
+	hostname = Info_ValueForKey( info, "sv_hostname" );
+	if ( !hostname[0] ) {
+		hostname = "Partie locale";
+	}
+
+	gametype = atoi( Info_ValueForKey( info, "g_gametype" ) );
+	if ( !gametype ) {
+		gametype = Cvar_VariableIntegerValue( "g_gametype" );
+	}
+
+	fraglimit = atoi( Info_ValueForKey( info, "fraglimit" ) );
+	if ( !fraglimit ) {
+		fraglimit = Cvar_VariableIntegerValue( "fraglimit" );
+	}
+
+	timelimit = atoi( Info_ValueForKey( info, "timelimit" ) );
+	if ( !timelimit ) {
+		timelimit = Cvar_VariableIntegerValue( "timelimit" );
+	}
+
+	maxclients = atoi( Info_ValueForKey( info, "sv_maxclients" ) );
+	if ( !maxclients ) {
+		maxclients = Cvar_VariableIntegerValue( "sv_maxclients" );
+	}
+
+	playerCount = 0;
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		if ( cl.gameState.stringOffsets[CS_PLAYERS + i] ) {
+			playerCount++;
+		}
+	}
+
+	Com_sprintf( buf, bufsize,
+		"Serveur : %s\n"
+		"Carte : %s\n"
+		"Mode : %s\n"
+		"Limite frags : %i\n"
+		"Limite temps : %i min\n"
+		"Joueurs : %i / %i",
+		hostname,
+		mapName[0] ? mapName : "?",
+		( gametype >= 0 && gametype < ARRAY_LEN( gametypeNames ) ) ? gametypeNames[gametype] : "?",
+		fraglimit,
+		timelimit,
+		playerCount,
+		maxclients > 0 ? maxclients : MAX_CLIENTS );
+}
+
+void CL_AddBotCommand( const char *name, int skill ) {
+	char cmd[MAX_STRING_CHARS];
+
+	if ( !name || !name[0] ) {
+		return;
+	}
+
+	Com_sprintf( cmd, sizeof( cmd ), "addbot %s %i\n", name, skill );
+	Cbuf_AddText( cmd );
+	Cbuf_Execute();
+}
+
+int CL_ConnectedBotCount( void ) {
+	int i;
+	int count = 0;
+	const char *info;
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		if ( i == clc.clientNum ) {
+			continue;
+		}
+
+		if ( !cl.gameState.stringOffsets[CS_PLAYERS + i] ) {
+			continue;
+		}
+
+		info = cl.gameState.stringData + cl.gameState.stringOffsets[CS_PLAYERS + i];
+		if ( Info_ValueForKey( info, "n" )[0] ) {
+			count++;
+		}
+	}
+
+	return count;
+}
+
+int CL_ConnectedBotName( int index, char *out, int outSize ) {
+	int i;
+	int count = 0;
+	const char *info;
+	const char *playerName;
+
+	if ( !out || outSize < 1 ) {
+		return 0;
+	}
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		if ( i == clc.clientNum ) {
+			continue;
+		}
+
+		if ( !cl.gameState.stringOffsets[CS_PLAYERS + i] ) {
+			continue;
+		}
+
+		info = cl.gameState.stringData + cl.gameState.stringOffsets[CS_PLAYERS + i];
+		playerName = Info_ValueForKey( info, "n" );
+		if ( !playerName || !playerName[0] ) {
+			continue;
+		}
+
+		if ( count == index ) {
+			Q_strncpyz( out, playerName, outSize );
+			Q_CleanStr( out );
+			return 1;
+		}
+
+		count++;
+	}
+
+	return 0;
+}
+
+void CL_KickBotByName( const char *name ) {
+	int i;
+	char info[MAX_INFO_STRING];
+	const char *playerName;
+
+	if ( !name || !name[0] ) {
+		return;
+	}
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		if ( i == clc.clientNum ) {
+			continue;
+		}
+
+		if ( !cl.gameState.stringOffsets[CS_PLAYERS + i] ) {
+			continue;
+		}
+
+		playerName = Info_ValueForKey( cl.gameState.stringData + cl.gameState.stringOffsets[CS_PLAYERS + i], "n" );
+		if ( !playerName || !playerName[0] ) {
+			continue;
+		}
+
+		Q_strncpyz( info, playerName, sizeof( info ) );
+		Q_CleanStr( info );
+
+		if ( !Q_stricmp( info, name ) ) {
+			Cbuf_AddText( va( "clientkick %i\n", i ) );
+			Cbuf_Execute();
+			return;
+		}
+	}
+}
+
+#endif
+
 /*
 =================
 CL_JoystickEvent

@@ -20,6 +20,8 @@ class BotMatchMapViewController: UIViewController {
 
     var delegate:BotMatchProtocol?
     
+    private var displayMaps: [(map: String, name: String)] = []
+
     let maps:[(map: String, name: String)] =
         [(map: "Q3DM0", name: "Q3DM0: Introduction"),
          (map: "Q3DM1", name: "Q3DM1: Arena Gate"),
@@ -51,13 +53,23 @@ class BotMatchMapViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        if let resourcePath = Bundle.main.resourcePath {
+            let installed = MapCatalog.availableMaps(bundleResourcePath: resourcePath)
+            displayMaps = maps.filter { installed.contains($0.map.lowercased()) }
+            if !displayMaps.contains(where: { $0.map == selectedMap }) {
+                selectedMap = displayMaps.first?.map ?? "Q3DM1"
+            }
+        } else {
+            displayMaps = maps
+        }
+
         mapList.mask = nil
         mapList.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
-        
+
         #if os(tvOS)
-        let documentsDir = try! FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
+        currentWorkingPath = try! FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
         #else
-        let documentsDir = try! FileManager().url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
+        currentWorkingPath = try! FileManager().url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
         #endif
     }
     
@@ -82,9 +94,11 @@ class BotMatchMapViewController: UIViewController {
 extension BotMatchMapViewController : UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        self.delegate?.setMap(map: maps[indexPath.row].map, name: maps[indexPath.row].name)
+        let entry = displayMaps[indexPath.row]
+        selectedMap = entry.map
+        self.delegate?.setMap(map: entry.map, name: entry.name)
         var destinationURL = URL(fileURLWithPath: currentWorkingPath)
-        destinationURL.appendPathComponent("graphics/\(maps[indexPath.row].map).jpg")
+        destinationURL.appendPathComponent("graphics/\(entry.map).jpg")
         mapShot.image = UIImage(contentsOfFile: destinationURL.path)
     }
     
@@ -92,25 +106,26 @@ extension BotMatchMapViewController : UITableViewDelegate {
 
 extension BotMatchMapViewController : UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return maps.count
+        return displayMaps.count
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        cell.textLabel?.text = maps[indexPath.row].name
-        
-        if selectedMap == maps[indexPath.row].map {
+        let entry = displayMaps[indexPath.row]
+        cell.textLabel?.text = entry.name
+
+        if selectedMap == entry.map {
             cell.setSelected(true, animated: false)
             var destinationURL = URL(fileURLWithPath: currentWorkingPath)
-            destinationURL.appendPathComponent("graphics/\(maps[indexPath.row].map).jpg")
+            destinationURL.appendPathComponent("graphics/\(entry.map).jpg")
             mapShot.image = UIImage(contentsOfFile: destinationURL.path)
         }
-        
+
         return cell
     }
-    
+
     func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-        if selectedMap == maps[indexPath.row].map {
+        if selectedMap == displayMaps[indexPath.row].map {
             tableView.selectRow(at: indexPath, animated: false, scrollPosition: .none)
         }
     }

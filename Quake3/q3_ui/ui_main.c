@@ -61,6 +61,12 @@ Q_EXPORT intptr_t vmMain( int command, int arg0, int arg1, int arg2, int arg3, i
 		UI_MouseEvent( arg0, arg1, arg2 );
 		return 0;
 
+#ifdef IOS
+	case UI_TOUCH_TAP:
+		UI_TouchTap( arg0, arg1 );
+		return 0;
+#endif
+
 	case UI_REFRESH:
 		UI_Refresh( arg0 );
 		return 0;

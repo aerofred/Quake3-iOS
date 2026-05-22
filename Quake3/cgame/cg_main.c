@@ -1877,8 +1877,15 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 
 	// get the rendering configuration from the client system
 	trap_GetGlconfig( &cgs.glconfig );
+#ifdef IOS
+	Sys_UpdateViewport4x3( cgs.glconfig.vidWidth, cgs.glconfig.vidHeight );
+	Sys_GetViewport640Mapping( &cgs.screenXScale, &cgs.screenYScale, &cgs.screenXBias, &cgs.screenYBias );
+#else
 	cgs.screenXScale = cgs.glconfig.vidWidth / 640.0;
 	cgs.screenYScale = cgs.glconfig.vidHeight / 480.0;
+	cgs.screenXBias = 0.0f;
+	cgs.screenYBias = 0.0f;
+#endif
 
 	// get the gamestate from the client system
 	trap_GetGameState( &cgs.gameState );

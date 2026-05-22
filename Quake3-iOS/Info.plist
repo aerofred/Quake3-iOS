@@ -50,5 +50,7 @@
 	</array>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>Quake III: Arena would like to remain connected to nearby bluetooth Game Controllers and Game Pads even when you’re not using the app.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Quake III: Arena utilise le réseau local pour rechercher et rejoindre des serveurs multijoueur.</string>
 </dict>
 </plist>

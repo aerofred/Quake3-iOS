@@ -15,6 +15,7 @@ class MainMenuViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        layoutMenuForSafeArea()
         
         if defaults.string(forKey: "playerName") == nil {
             defaults.set("unnamedPlayer", forKey: "playerName")
@@ -194,8 +195,34 @@ class MainMenuViewController: UIViewController {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
+
+    private func layoutMenuForSafeArea() {
+        let stack = view.subviews.compactMap { $0 as? UIStackView }.first {
+            $0.arrangedSubviews.count >= 4
+        }
+        guard let menuStack = stack else { return }
+
+        lowerFixedHeightPriority(for: menuStack)
+        constrainBottomToSafeArea(menuStack, constant: 8)
+    }
     
     @IBAction func exitToMainMenu(segue: UIStoryboardSegue) {
     }
 
+}
+
+extension UIViewController {
+
+    func lowerFixedHeightPriority(for view: UIView) {
+        view.constraints
+            .filter { $0.firstAttribute == .height && $0.priority == .required }
+            .forEach { $0.priority = UILayoutPriority(999) }
+    }
+
+    func constrainBottomToSafeArea(_ subview: UIView, constant: CGFloat = 0) {
+        subview.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            subview.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -constant)
+        ])
+    }
 }

@@ -31,6 +31,14 @@ cvar_t		*cl_graphheight;
 cvar_t		*cl_graphscale;
 cvar_t		*cl_graphshift;
 
+#ifdef IOS
+#include "../sys/sys_local.h"
+extern int Sys_SafeAreaTop( void );
+extern int Sys_SafeAreaLeft( void );
+extern int Sys_SafeAreaBottom( void );
+extern int Sys_SafeAreaRight( void );
+#endif
+
 /*
 ================
 SCR_DrawNamedPic
@@ -59,6 +67,8 @@ Adjusted for resolution and screen aspect ratio
 void SCR_AdjustFrom640( float *x, float *y, float *w, float *h ) {
 	float	xscale;
 	float	yscale;
+	float	xbias = 0.0f;
+	float	ybias = 0.0f;
 
 #if 0
 		// adjust for wide screens
@@ -67,14 +77,20 @@ void SCR_AdjustFrom640( float *x, float *y, float *w, float *h ) {
 		}
 #endif
 
+#ifdef IOS
+	Sys_UpdateViewport4x3( cls.glconfig.vidWidth, cls.glconfig.vidHeight );
+	Sys_GetViewport640Mapping( &xscale, &yscale, &xbias, &ybias );
+#else
+	xscale = cls.glconfig.vidWidth / 640.0f;
+	yscale = cls.glconfig.vidHeight / 480.0f;
+#endif
+
 	// scale for screen sizes
-	xscale = cls.glconfig.vidWidth / 640.0;
-	yscale = cls.glconfig.vidHeight / 480.0;
 	if ( x ) {
-		*x *= xscale;
+		*x = xbias + *x * xscale;
 	}
 	if ( y ) {
-		*y *= yscale;
+		*y = ybias + *y * yscale;
 	}
 	if ( w ) {
 		*w *= xscale;
@@ -83,6 +99,64 @@ void SCR_AdjustFrom640( float *x, float *y, float *w, float *h ) {
 		*h *= yscale;
 	}
 }
+
+#ifdef IOS
+void CL_IOS_AdjustStretchPicFromVM( float *x, float *y, float *w, float *h ) {
+	Sys_RemapFullscreenStretchPic( x, y, w, h, cls.glconfig.vidWidth, cls.glconfig.vidHeight );
+}
+
+void CL_IOS_RenderScene( const refdef_t *fd ) {
+	refdef_t local;
+	int vx, vy, vw, vh;
+	int vidW, vidH;
+	float mapW, mapH;
+	float aspect;
+	float fovYRad;
+	float widthAtFov;
+	qboolean iconView;
+
+	vidW = cls.glconfig.vidWidth;
+	vidH = cls.glconfig.vidHeight;
+
+	Sys_UpdateViewport4x3( vidW, vidH );
+	Sys_GetViewport4x3( &vx, &vy, &vw, &vh );
+
+	Com_Memcpy( &local, fd, sizeof( local ) );
+
+	/* HUD previews (scoreboard head, etc.): small refdef + RDF_NOWORLDMODEL */
+	iconView = ( fd->rdflags & RDF_NOWORLDMODEL )
+		&& ( fd->width < vidW * 9 / 10 || fd->height < vidH * 9 / 10 );
+
+	if ( vidW > 0 && vidH > 0 ) {
+		mapW = (float)vw / (float)vidW;
+		mapH = (float)vh / (float)vidH;
+		local.x = vx + (int)( fd->x * mapW );
+		local.y = vy + (int)( fd->y * mapH );
+		local.width = (int)( fd->width * mapW );
+		local.height = (int)( fd->height * mapH );
+		local.width &= ~1;
+		local.height &= ~1;
+	}
+
+	if ( !iconView && fd->width >= vidW * 9 / 10 && fd->height >= vidH * 9 / 10 ) {
+		local.x = vx;
+		local.y = vy;
+		local.width = vw;
+		local.height = vh;
+	}
+
+	if ( !iconView && local.width > 0 && local.height > 0 && fd->fov_y > 0.1f ) {
+		/* Keep vertical FOV from cgame; adjust horizontal for 4:3 viewport */
+		local.fov_y = fd->fov_y;
+		aspect = (float)local.width / (float)local.height;
+		fovYRad = local.fov_y * M_PI / 360.0f;
+		widthAtFov = tanf( fovYRad ) * aspect;
+		local.fov_x = atanf( widthAtFov ) * 360.0f / M_PI;
+	}
+
+	re.RenderScene( &local );
+}
+#endif
 
 /*
 ================
@@ -500,9 +574,11 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 			SCR_DrawCinematic();
 			break;
 		case CA_DISCONNECTED:
+#ifndef IOS
 			// force menu up
 			S_StopAllSounds();
 			VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_MAIN );
+#endif
 			break;
 		case CA_CONNECTING:
 		case CA_CHALLENGING:
@@ -591,4 +667,3 @@ void SCR_UpdateScreen( void ) {
 	
 	recursive = 0;
 }
-

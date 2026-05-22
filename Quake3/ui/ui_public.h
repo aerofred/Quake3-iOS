@@ -182,6 +182,9 @@ typedef enum {
 
 	UI_DRAW_CONNECT_SCREEN,
 //	void	UI_DrawConnectScreen( qboolean overlay );
+
+	UI_TOUCH_TAP,
+//	void	UI_TouchTap( int x, int y );
 	
 	UI_HASUNIQUECDKEY
 // if !overlay, the background will be drawn, otherwise it will be

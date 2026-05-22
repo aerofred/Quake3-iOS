@@ -116,7 +116,7 @@
                                     </button>
                                 </subviews>
                                 <constraints>
-                                    <constraint firstAttribute="height" constant="211" id="99t-3u-wjr"/>
+                                    <constraint firstAttribute="height" constant="211" priority="750" id="99t-3u-wjr"/>
                                 </constraints>
                             </stackView>
                         </subviews>
@@ -134,6 +134,7 @@
                             <constraint firstItem="iW9-Ha-ihQ" firstAttribute="top" secondItem="Oxh-jv-n6m" secondAttribute="top" constant="20" id="hSr-2D-Bxe"/>
                             <constraint firstItem="Oxh-jv-n6m" firstAttribute="trailing" secondItem="iW9-Ha-ihQ" secondAttribute="trailing" constant="20" id="jks-0E-Rw2"/>
                             <constraint firstItem="NIu-iW-DeA" firstAttribute="top" secondItem="iW9-Ha-ihQ" secondAttribute="bottom" constant="8" id="oTj-Pa-pji"/>
+                            <constraint firstItem="Oxh-jv-n6m" firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="NIu-iW-DeA" secondAttribute="bottom" constant="8" id="mNu-Sa-feA"/>
                             <constraint firstItem="Oxh-jv-n6m" firstAttribute="trailing" secondItem="fj0-uq-AC4" secondAttribute="trailing" id="qbV-MC-hqz"/>
                             <constraint firstItem="Oxh-jv-n6m" firstAttribute="trailing" secondItem="iW9-Ha-ihQ" secondAttribute="trailing" constant="20" id="ucK-Ar-YPj"/>
                             <constraint firstItem="iW9-Ha-ihQ" firstAttribute="top" secondItem="Oxh-jv-n6m" secondAttribute="top" constant="20" id="zcA-Ji-oaW"/>
@@ -202,7 +203,6 @@
                                     <color key="titleColor" red="0.87058824300000004" green="0.089310286559999993" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 </state>
                                 <connections>
-                                    <action selector="sortBy:" destination="LuR-jY-oBi" eventType="touchUpInside" id="HHs-4N-sWp"/>
                                 </connections>
                             </button>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Frag Limit:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="fK1-im-lp5">
@@ -229,7 +229,6 @@
                                 </state>
                                 <connections>
                                     <action selector="decrementFragLimit:" destination="WvD-UG-yat" eventType="touchUpInside" id="E9j-sv-07a"/>
-                                    <action selector="sortBy:" destination="LuR-jY-oBi" eventType="touchUpInside" id="Jyr-ap-Ihj"/>
                                 </connections>
                             </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="sAP-Ah-LNX">
@@ -244,7 +243,6 @@
                                 </state>
                                 <connections>
                                     <action selector="incrementFragLimit:" destination="WvD-UG-yat" eventType="touchUpInside" id="y4z-lW-1WU"/>
-                                    <action selector="sortBy:" destination="LuR-jY-oBi" eventType="touchUpInside" id="iXx-vA-4DZ"/>
                                 </connections>
                             </button>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Time Limit:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="ctQ-Ze-BrG">
@@ -265,7 +263,6 @@
                                 </state>
                                 <connections>
                                     <action selector="decrementTimeLimit:" destination="WvD-UG-yat" eventType="touchUpInside" id="ReP-w5-dJU"/>
-                                    <action selector="sortBy:" destination="LuR-jY-oBi" eventType="touchUpInside" id="jBZ-sl-zYp"/>
                                 </connections>
                             </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="K5J-Zf-7cL">
@@ -280,7 +277,6 @@
                                 </state>
                                 <connections>
                                     <action selector="incrementTimeLimit:" destination="WvD-UG-yat" eventType="touchUpInside" id="7po-0i-ILQ"/>
-                                    <action selector="sortBy:" destination="LuR-jY-oBi" eventType="touchUpInside" id="a6F-xf-QIx"/>
                                 </connections>
                             </button>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" translatesAutoresizingMaskIntoConstraints="NO" id="Azw-Ek-Wg3">
@@ -305,7 +301,6 @@
                                     <color key="titleColor" red="0.87058824300000004" green="0.089310286559999993" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 </state>
                                 <connections>
-                                    <action selector="sortBy:" destination="LuR-jY-oBi" eventType="touchUpInside" id="cFy-ES-KfG"/>
                                     <segue destination="irP-Ed-f7p" kind="presentation" identifier="BotMatchMapSegue" id="eZH-hd-0mh"/>
                                 </connections>
                             </button>
@@ -316,7 +311,6 @@
                                     <color key="titleColor" red="0.87058824300000004" green="0.089310286559999993" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 </state>
                                 <connections>
-                                    <action selector="sortBy:" destination="LuR-jY-oBi" eventType="touchUpInside" id="ftY-rv-avd"/>
                                     <segue destination="Whp-pa-8JV" kind="presentation" identifier="BotMatchBotSegue" id="oJV-qJ-XhQ"/>
                                 </connections>
                             </button>
@@ -329,7 +323,6 @@
                                 </constraints>
                                 <connections>
                                     <action selector="skill1:" destination="WvD-UG-yat" eventType="touchUpInside" id="ONY-6h-pzj"/>
-                                    <action selector="skill1:" destination="Whp-pa-8JV" eventType="touchUpInside" id="sUm-mU-4mw"/>
                                 </connections>
                             </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Wkp-x3-t38">
@@ -340,7 +333,6 @@
                                     <constraint firstAttribute="height" constant="32" id="kj6-Fj-2Ij"/>
                                 </constraints>
                                 <connections>
-                                    <action selector="skill2:" destination="Whp-pa-8JV" eventType="touchUpInside" id="8yR-4i-Jcq"/>
                                     <action selector="skill2:" destination="WvD-UG-yat" eventType="touchUpInside" id="stj-ig-NJD"/>
                                 </connections>
                             </button>
@@ -352,7 +344,6 @@
                                     <constraint firstAttribute="width" constant="32" id="hlD-PN-Kkd"/>
                                 </constraints>
                                 <connections>
-                                    <action selector="skill3:" destination="Whp-pa-8JV" eventType="touchUpInside" id="bbg-MV-zgZ"/>
                                     <action selector="skill3:" destination="WvD-UG-yat" eventType="touchUpInside" id="sY0-BR-mWO"/>
                                 </connections>
                             </button>
@@ -364,7 +355,6 @@
                                     <constraint firstAttribute="height" constant="32" id="nuq-nw-tec"/>
                                 </constraints>
                                 <connections>
-                                    <action selector="skill4:" destination="Whp-pa-8JV" eventType="touchUpInside" id="GWp-9R-2Xh"/>
                                     <action selector="skill4:" destination="WvD-UG-yat" eventType="touchUpInside" id="vPa-B3-TT8"/>
                                 </connections>
                             </button>
@@ -377,7 +367,6 @@
                                 </constraints>
                                 <connections>
                                     <action selector="skill5:" destination="WvD-UG-yat" eventType="touchUpInside" id="ZMI-yW-Nt7"/>
-                                    <action selector="skill5:" destination="Whp-pa-8JV" eventType="touchUpInside" id="xdf-WB-i6S"/>
                                 </connections>
                             </button>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Skill:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Gsz-AS-IR7">
@@ -607,6 +596,7 @@
                             <constraint firstItem="0ni-l6-EF9" firstAttribute="leading" secondItem="Bq1-aI-fE7" secondAttribute="leading" constant="20" id="L0V-Zi-yyT"/>
                             <constraint firstItem="Bq1-aI-fE7" firstAttribute="trailing" secondItem="rso-ux-2dW" secondAttribute="trailing" constant="20" id="Luc-s6-ReS"/>
                             <constraint firstItem="OlM-0b-IFw" firstAttribute="top" secondItem="rso-ux-2dW" secondAttribute="bottom" constant="8" id="Vam-xk-p3N"/>
+                            <constraint firstItem="Bq1-aI-fE7" firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="OlM-0b-IFw" secondAttribute="bottom" constant="8" id="SaF-Sv-Brw"/>
                             <constraint firstItem="xcQ-ut-mNp" firstAttribute="centerY" secondItem="OlM-0b-IFw" secondAttribute="centerY" id="dgn-gD-JVz"/>
                             <constraint firstItem="OlM-0b-IFw" firstAttribute="leading" secondItem="xcQ-ut-mNp" secondAttribute="trailing" constant="20" id="e6C-14-n5a"/>
                             <constraint firstItem="OlM-0b-IFw" firstAttribute="trailing" secondItem="rso-ux-2dW" secondAttribute="trailing" id="qZD-Zn-ybC"/>
@@ -861,8 +851,9 @@
                             <constraint firstItem="u95-ZK-53H" firstAttribute="top" secondItem="SuW-sx-R42" secondAttribute="bottom" constant="8" id="XPm-Kt-WKu"/>
                             <constraint firstItem="Lhf-IW-WTU" firstAttribute="centerX" secondItem="IRp-sc-De8" secondAttribute="centerX" id="Z66-19-4MN"/>
                             <constraint firstItem="fTq-wa-mWv" firstAttribute="centerX" secondItem="IRp-sc-De8" secondAttribute="centerX" id="irT-Ld-9yB"/>
-                            <constraint firstItem="SuW-sx-R42" firstAttribute="centerY" secondItem="IRp-sc-De8" secondAttribute="centerY" id="kQ3-bf-ZOR"/>
+                            <constraint firstItem="fTq-wa-mWv" firstAttribute="top" secondItem="7eJ-wf-jvn" secondAttribute="top" constant="12" id="kQ3-bf-ZOR"/>
                             <constraint firstItem="3ar-zK-sKb" firstAttribute="top" secondItem="u95-ZK-53H" secondAttribute="bottom" constant="8" id="qk8-AL-P4p"/>
+                            <constraint firstItem="7eJ-wf-jvn" firstAttribute="bottom" secondItem="3ar-zK-sKb" secondAttribute="bottom" constant="12" id="SaF-ea-reA"/>
                             <constraint firstItem="u95-ZK-53H" firstAttribute="centerX" secondItem="IRp-sc-De8" secondAttribute="centerX" id="twA-QQ-S6M"/>
                         </constraints>
                     </view>

@@ -76,7 +76,9 @@ public final class JoyStickView: UIView {
     public private(set) var displacement: CGFloat = 0.0
     
     /// The radius of the base of the joystick, the max distance the handle may move in any direction.
-    private lazy var radius: CGFloat = { return self.bounds.size.width / 2.0 }()
+    private var radius: CGFloat {
+        max(bounds.width, bounds.height) / 2.0
+    }
     
     /// The image to use for the base of the joystick
     private let baseImage = UIImage(named: "JoyStickBase")!
@@ -127,16 +129,28 @@ public final class JoyStickView: UIView {
         baseImageView = UIImageView(image: baseImage)
         baseImageView.alpha = baseAlpha
         addSubview(baseImageView)
-        baseImageView.frame = bounds
         
         handleImageView = UIImageView(image: handleImage)
         makeHandleImage()
         addSubview(handleImageView)
-        handleImageView.frame = bounds.insetBy(dx: 0.15 * bounds.width, dy: 0.15 * bounds.height)
         
         tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(resetFrame))
         tapGestureRecognizer!.numberOfTapsRequired = 2
         addGestureRecognizer(tapGestureRecognizer!)
+
+        layoutJoystickSubviews()
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        layoutJoystickSubviews()
+    }
+
+    private func layoutJoystickSubviews() {
+        guard baseImageView != nil, handleImageView != nil else { return }
+        baseImageView.frame = bounds
+        let inset = 0.15 * min(bounds.width, bounds.height)
+        handleImageView.frame = bounds.insetBy(dx: inset, dy: inset)
     }
     
     /**
@@ -216,6 +230,7 @@ public final class JoyStickView: UIView {
      Reset handle position so that it is in the center of the base.
      */
     private func resetPosition() {
+        guard superview != nil else { return }
         updateLocation(location: CGPoint(x: frame.midX, y: frame.midY))
     }
     

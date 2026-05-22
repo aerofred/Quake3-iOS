@@ -27,6 +27,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **********************************************************************/
 #include "ui_local.h"
 
+#ifdef IOS
+#include "../sys/sys_local.h"
+#endif
+
 qboolean		m_entersound;		// after a frame, so caching won't disrupt the sound
 
 void QDECL Com_Error( int level, const char *error, ... ) {
@@ -419,11 +423,21 @@ Adjusted for resolution and screen aspect ratio
 ================
 */
 void UI_AdjustFrom640( float *x, float *y, float *w, float *h ) {
+	float xscale = uiInfo.uiDC.xscale;
+	float yscale = uiInfo.uiDC.yscale;
+	float xbias = uiInfo.uiDC.bias;
+	float ybias = 0.0f;
+
+#ifdef IOS
+	Sys_UpdateViewport4x3( uiInfo.uiDC.glconfig.vidWidth, uiInfo.uiDC.glconfig.vidHeight );
+	Sys_GetViewport640Mapping( &xscale, &yscale, &xbias, &ybias );
+#endif
+
 	// expect valid pointers
-	*x = *x * uiInfo.uiDC.xscale + uiInfo.uiDC.bias;
-	*y *= uiInfo.uiDC.yscale;
-	*w *= uiInfo.uiDC.xscale;
-	*h *= uiInfo.uiDC.yscale;
+	*x = *x * xscale + xbias;
+	*y = *y * yscale + ybias;
+	*w *= xscale;
+	*h *= yscale;
 }
 
 void UI_DrawNamedPic( float x, float y, float width, float height, const char *picname ) {

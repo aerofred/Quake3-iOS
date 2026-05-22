@@ -24,7 +24,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // for a 3D rendering
 #include "cg_local.h"
 
-
 /*
 =============================================================================
 
@@ -203,6 +202,21 @@ static void CG_CalcVrect (void) {
 		}
 
 	}
+#ifdef IOS
+	{
+		int baseX, baseY, baseW, baseH;
+
+		Sys_UpdateViewport4x3( cgs.glconfig.vidWidth, cgs.glconfig.vidHeight );
+		Sys_GetViewport4x3( &baseX, &baseY, &baseW, &baseH );
+
+		cg.refdef.width = baseW * size / 100;
+		cg.refdef.width &= ~1;
+		cg.refdef.height = baseH * size / 100;
+		cg.refdef.height &= ~1;
+		cg.refdef.x = baseX + ( baseW - cg.refdef.width ) / 2;
+		cg.refdef.y = baseY + ( baseH - cg.refdef.height ) / 2;
+	}
+#else
 	cg.refdef.width = cgs.glconfig.vidWidth*size/100;
 	cg.refdef.width &= ~1;
 
@@ -211,6 +225,7 @@ static void CG_CalcVrect (void) {
 
 	cg.refdef.x = (cgs.glconfig.vidWidth - cg.refdef.width)/2;
 	cg.refdef.y = (cgs.glconfig.vidHeight - cg.refdef.height)/2;
+#endif
 }
 
 //==============================================================================

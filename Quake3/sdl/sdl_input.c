@@ -1066,6 +1066,10 @@ static void IN_ProcessEvents( void )
 			case SDL_MOUSEMOTION:
 				if( mouseActive )
 				{
+#ifdef IOS
+					if( Key_GetCatcher( ) & KEYCATCH_UI )
+						break;
+#endif
 					if( !e.motion.xrel && !e.motion.yrel )
 						break;
 					Com_QueueEvent( in_eventTime, SE_MOUSE, e.motion.xrel, e.motion.yrel, 0, NULL );
@@ -1154,30 +1158,47 @@ static void IN_ProcessEvents( void )
 				}
 				break;
                 
+#ifdef IOS
+                case SDL_FINGERMOTION:
                 case SDL_FINGERDOWN:
                 case SDL_FINGERUP:
-                    if (Key_GetCatcher( ) & KEYCATCH_UI) {
-                        
-                        float ratio43 = 640.0f / 480.0f;
-                        float ratio = (float)cls.glconfig.vidWidth / (float)cls.glconfig.vidHeight;
-                        
-                        // If we're not on a 4:3 screen, do the math to figure out how to
-                        // translate coordinates to a 4:3 equivalent
-                        if (ratio43 != ratio) {
-                            float width43 = 480 * ratio;
-                            float gap = 0.5 * (width43 - (480.0f*(640.0f/480.0f)));
-                            float finger = (e.tfinger.x * width43);
-                            float fingerMinusGap = (e.tfinger.x * width43) - gap;
+                    if ( Key_GetCatcher( ) & KEYCATCH_UI ) {
+                        float vidWidth = (float)cls.glconfig.vidWidth;
+                        float vidHeight = (float)cls.glconfig.vidHeight;
+                        float pixelX = e.tfinger.x * vidWidth;
+                        float pixelY = e.tfinger.y * vidHeight;
+                        float xscale;
+                        float yscale;
+                        float xbias;
+                        float ybias;
+                        int menuX;
+                        int menuY;
 
-                            CL_MouseEvent(fingerMinusGap, e.tfinger.y * 480, Sys_Milliseconds(), qtrue);
-                        } else {
-                            CL_MouseEvent(e.tfinger.x * 640, e.tfinger.y * 480, Sys_Milliseconds(), qtrue);
+                        Sys_UpdateViewport4x3( cls.glconfig.vidWidth, cls.glconfig.vidHeight );
+                        Sys_GetViewport640Mapping( &xscale, &yscale, &xbias, &ybias );
+
+                        menuX = (int)( ( pixelX - xbias ) / xscale );
+                        menuY = (int)( ( pixelY - ybias ) / yscale );
+
+                        if ( menuX < 0 ) {
+                            menuX = 0;
+                        } else if ( menuX > 640 ) {
+                            menuX = 640;
                         }
-                        
-                        Com_QueueEvent( in_eventTime, SE_KEY, K_MOUSE1,
-                            ( e.type == SDL_FINGERDOWN ? qtrue : qfalse ), 0, NULL );
+
+                        if ( menuY < 0 ) {
+                            menuY = 0;
+                        } else if ( menuY > 480 ) {
+                            menuY = 480;
+                        }
+
+                        if ( e.type == SDL_FINGERMOTION || e.type == SDL_FINGERDOWN ) {
+                            CL_MouseEvent( menuX, menuY, Sys_Milliseconds(), qtrue );
+                        }
+
                     }
                     break;
+#endif
 
 			default:
 				break;
@@ -1217,6 +1238,12 @@ void IN_Frame( void )
 		// Window not got focus
 		IN_DeactivateMouse( cls.glconfig.isFullscreen );
 	}
+#ifdef IOS
+	else if( Key_GetCatcher( ) & KEYCATCH_UI )
+	{
+		IN_DeactivateMouse( cls.glconfig.isFullscreen );
+	}
+#endif
 	else
 		IN_ActivateMouse( cls.glconfig.isFullscreen );
 

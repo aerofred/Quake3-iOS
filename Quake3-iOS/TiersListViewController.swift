@@ -18,8 +18,7 @@ class TiersListViewController: UIViewController {
                  "Tier 3 - Combat",
                  "Tier 4 - Warrior",
                  "Tier 5 - Veteran",
-                 "Tier 6 - Master",
-                 "Tier 7 - Elite"]
+                 "Tier 6 - Master"]
     
     let maps:[[(map: String, name: String)]] = [[(map: "q3dm0", name: "Q3DM0: Introduction (Crash)")],
                                                 [(map: "q3dm1", name: "Q3DM1: Arena Gate (Ranger)"),
@@ -41,7 +40,7 @@ class TiersListViewController: UIViewController {
                                                 [(map: "q3dm13", name: "Q3DM13: Lost World (Stripe, Razor, Visor)"),
                                                  (map: "q3dm14", name: "Q3DM14: Grim Dungeons (Stripe, Visor, Razor, Keel)"),
                                                  (map: "q3dm15", name: "Q3DM15: Demon Keep (Stripe, Razor, Keel)"),
-                                                 (map: "q3TOURNEY5", name: "Q3TOURNEY5: Fatal Instinct (Uriel)")],
+                                                 (map: "q3tourney5", name: "Q3TOURNEY5: Fatal Instinct (Uriel)")],
                                                 [(map: "q3dm16", name: "Q3DM16: Bouncy Map (Cadaver, Bones, Doom)"),
                                                  (map: "q3dm17", name: "Q3DM17: The Longest Yard (Major, Sorlag, Doom)"),
                                                  (map: "q3dm18", name: "Q3DM18: Space Chamber (Major, Sorlag, Cadaver, Bones, Keel)"),
@@ -50,14 +49,36 @@ class TiersListViewController: UIViewController {
 
     var selectedMap = ""
 
+    private var displayTiers: [String] = []
+    private var displayMaps: [[(map: String, name: String)]] = []
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        tiersList.mask = nil
-        
-        tiersList.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
 
-        // Do any additional setup after loading the view.
+        rebuildMapList()
+
+        tiersList.mask = nil
+        tiersList.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+    }
+
+    private func rebuildMapList() {
+        guard let resourcePath = Bundle.main.resourcePath else {
+            displayTiers = tiers
+            displayMaps = maps
+            return
+        }
+
+        let installed = MapCatalog.availableMaps(bundleResourcePath: resourcePath)
+        displayTiers = []
+        displayMaps = []
+
+        for (index, tier) in tiers.enumerated() {
+            let available = maps[index].filter { installed.contains($0.map.lowercased()) }
+            if !available.isEmpty {
+                displayTiers.append(tier)
+                displayMaps.append(available)
+            }
+        }
     }
 
     override func didReceiveMemoryWarning() {
@@ -66,14 +87,18 @@ class TiersListViewController: UIViewController {
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        (segue.destination as! DifficultyViewController).selectedMap = selectedMap
+        guard segue.identifier == "DifficultySegue",
+              let difficultyVC = segue.destination as? DifficultyViewController else {
+            return
+        }
+        difficultyVC.selectedMap = selectedMap
     }
 }
 
 extension TiersListViewController : UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        selectedMap = maps[indexPath.section][indexPath.row].map
+        selectedMap = displayMaps[indexPath.section][indexPath.row].map
         performSegue(withIdentifier: "DifficultySegue", sender: self)
     }
     
@@ -81,20 +106,20 @@ extension TiersListViewController : UITableViewDelegate {
 
 extension TiersListViewController : UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return maps[section].count
+        return displayMaps[section].count
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tiersList.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        cell.textLabel?.text = maps[indexPath.section][indexPath.row].name
+        cell.textLabel?.text = displayMaps[indexPath.section][indexPath.row].name
         return cell
     }
-    
+
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        return tiers[section]
+        return displayTiers[section]
     }
-    
+
     func numberOfSections(in tableView: UITableView) -> Int {
-        return tiers.count
+        return displayMaps.count
     }
 }

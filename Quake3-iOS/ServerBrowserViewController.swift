@@ -79,8 +79,9 @@ class ServerBrowserViewController: UIViewController {
     // MARK: - Navigation
 
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        if segue.identifier == "StartMultiplayerGameSegue" {
-            (segue.destination as! GameViewController).selectedServer = selectedServer
+        if segue.identifier == "StartMultiplayerGameSegue", let server = selectedServer {
+            GameSession.configureForMultiplayer(server: server)
+            (segue.destination as! GameViewController).selectedServer = server
         } else if segue.identifier == "ServerInfoSegue" {
             (segue.destination as! ServerInfoViewController).server = selectedServer
         } else if segue.identifier == "ServerFilterSegue" {

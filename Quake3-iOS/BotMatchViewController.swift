@@ -37,9 +37,9 @@ class BotMatchViewController: UIViewController {
     @IBOutlet weak var incrementTimeLimitButton: UIButton!
     @IBOutlet weak var decrementTimeLimitButton: UIButton!
 
-    var botSkill = 3.0
+    var botSkill: Float = 3
     
-    var selectedMap = "Q3DM1"
+    var selectedMap = "q3dm1"
 
     let fileManager = FileManager()
     var documentsDir = ""
@@ -48,19 +48,14 @@ class BotMatchViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        documentsDir = (try? FileManager().url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path) ?? ""
 
         botList.mask = nil
         botList.backgroundColor = UIColor.black
         botList.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
         
-        #if os(tvOS)
-        let documentsDir = try! FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
-        #else
-        let documentsDir = try! FileManager().url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
-        #endif
-        
         var destinationURL = URL(fileURLWithPath: documentsDir)
-        destinationURL.appendPathComponent("graphics/\(selectedMap).jpg")
+        destinationURL.appendPathComponent("graphics/\(selectedMap.uppercased()).jpg")
         mapShot.image = UIImage(contentsOfFile: destinationURL.path)
         
         var skill1URL = URL(fileURLWithPath: documentsDir)
@@ -94,15 +89,24 @@ class BotMatchViewController: UIViewController {
 
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if segue.identifier == "BotMatchSegue" {
-            (segue.destination as! GameViewController).selectedMap = selectedMap
-            (segue.destination as! GameViewController).botMatch = true
-            (segue.destination as! GameViewController).botSkill = botSkill
-            (segue.destination as! GameViewController).bots = bots
-            (segue.destination as! GameViewController).fragLimit = fragLimit
-            (segue.destination as! GameViewController).timeLimit = timeLimit
+            let map = selectedMap.lowercased()
+            GameSession.configureForBotMatch(
+                map: map,
+                skill: botSkill,
+                bots: bots,
+                fragLimit: fragLimit,
+                timeLimit: timeLimit
+            )
+            let gameVC = segue.destination as! GameViewController
+            gameVC.selectedMap = map
+            gameVC.botMatch = true
+            gameVC.botSkill = botSkill
+            gameVC.bots = bots
+            gameVC.fragLimit = fragLimit
+            gameVC.timeLimit = timeLimit
         } else if segue.identifier == "BotMatchMapSegue" {
             (segue.destination as! BotMatchMapViewController).delegate = self
-            (segue.destination as! BotMatchMapViewController).selectedMap = selectedMap
+            (segue.destination as! BotMatchMapViewController).selectedMap = selectedMap.uppercased()
         } else if segue.identifier == "BotMatchBotSegue" {
             (segue.destination as! BotMatchBotViewController).delegate = self
         }
@@ -170,9 +174,9 @@ class BotMatchViewController: UIViewController {
 extension BotMatchViewController: BotMatchProtocol {
     func setMap(map: String, name: String) {
         mapButton.setTitle(map, for: .normal)
-        selectedMap = map
+        selectedMap = map.lowercased()
         var destinationURL = URL(fileURLWithPath: documentsDir)
-        destinationURL.appendPathComponent("graphics/\(selectedMap).jpg")
+        destinationURL.appendPathComponent("graphics/\(map).jpg")
         mapShot.image = UIImage(contentsOfFile: destinationURL.path)
     }
     

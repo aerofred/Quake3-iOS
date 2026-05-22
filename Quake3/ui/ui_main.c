@@ -5089,17 +5089,23 @@ void _UI_Init( qboolean inGameLoad ) {
 	trap_Cvar_Set("ui_videomode", va( "%dx%d", uiInfo.uiDC.glconfig.vidWidth, uiInfo.uiDC.glconfig.vidHeight ) );
 
 	// for 640x480 virtualized screen
+#ifdef IOS
+	{
+		float ybias;
+
+		Sys_UpdateViewport4x3( uiInfo.uiDC.glconfig.vidWidth, uiInfo.uiDC.glconfig.vidHeight );
+		Sys_GetViewport640Mapping( &uiInfo.uiDC.xscale, &uiInfo.uiDC.yscale, &uiInfo.uiDC.bias, &ybias );
+	}
+#else
 	uiInfo.uiDC.yscale = uiInfo.uiDC.glconfig.vidHeight * (1.0/480.0);
 	uiInfo.uiDC.xscale = uiInfo.uiDC.glconfig.vidWidth * (1.0/640.0);
 	if ( uiInfo.uiDC.glconfig.vidWidth * 480 > uiInfo.uiDC.glconfig.vidHeight * 640 ) {
-		// wide screen
 		uiInfo.uiDC.bias = 0.5 * ( uiInfo.uiDC.glconfig.vidWidth - ( uiInfo.uiDC.glconfig.vidHeight * (640.0/480.0) ) );
 		uiInfo.uiDC.xscale = uiInfo.uiDC.yscale;
-	}
-	else {
-		// no wide screen
+	} else {
 		uiInfo.uiDC.bias = 0;
 	}
+#endif
 
 
   //UI_Load();
@@ -5258,8 +5264,6 @@ void _UI_MouseEvent( int dx, int dy, qboolean absolute )
 {
 	int bias;
 
-	Com_Printf( "_UI_MouseEvent (2) \n" );
-
 	// convert X bias to 640 coords
 	bias = uiInfo.uiDC.bias / uiInfo.uiDC.xscale;
 
@@ -5323,6 +5327,8 @@ void _UI_SetActiveMenu( uiMenuCommand_t menu ) {
 			}
 			Menus_CloseAll();
 			Menus_ActivateByName("main");
+			uiInfo.uiDC.cursorx = 320;
+			uiInfo.uiDC.cursory = 240;
 			trap_Cvar_VariableStringBuffer("com_errorMessage", buf, sizeof(buf));
 			if (strlen(buf)) {
 				if (!ui_singlePlayerActive.integer) {
@@ -5364,6 +5370,8 @@ void _UI_SetActiveMenu( uiMenuCommand_t menu ) {
 			UI_BuildPlayerList();
 			Menus_CloseAll();
 			Menus_ActivateByName("ingame");
+			uiInfo.uiDC.cursorx = 320;
+			uiInfo.uiDC.cursory = 240;
 		  return;
 	  }
   }

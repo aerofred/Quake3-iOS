@@ -1285,6 +1285,16 @@ void CL_KeyDownEvent( int key, unsigned time )
 		}
 
 		if ( !( Key_GetCatcher( ) & KEYCATCH_UI ) ) {
+#ifdef IOS
+			if ( com_sv_running && com_sv_running->integer && clc.state >= CA_CONNECTED && !clc.demoplaying ) {
+				CL_OpenPauseMenu();
+			}
+			else if ( clc.state != CA_DISCONNECTED ) {
+				CL_Disconnect_f();
+				S_StopAllSounds();
+				VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_MAIN );
+			}
+#else
 			if ( clc.state == CA_ACTIVE && !clc.demoplaying ) {
 				VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_INGAME );
 			}
@@ -1293,8 +1303,16 @@ void CL_KeyDownEvent( int key, unsigned time )
 				S_StopAllSounds();
 				VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_MAIN );
 			}
+#endif
 			return;
 		}
+
+#ifdef IOS
+		if ( CL_IsPauseMenuOpen() != 0 ) {
+			CL_ClosePauseMenu();
+			return;
+		}
+#endif
 
 		VM_Call( uivm, UI_KEY_EVENT, key, qtrue );
 		return;

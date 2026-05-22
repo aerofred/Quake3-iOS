@@ -570,6 +570,10 @@ void	SCR_DebugGraph (float value);
 int		SCR_GetBigStringWidth( const char *str );	// returns in virtual 640x480 coordinates
 
 void	SCR_AdjustFrom640( float *x, float *y, float *w, float *h );
+#ifdef IOS
+void	CL_IOS_AdjustStretchPicFromVM( float *x, float *y, float *w, float *h );
+void	CL_IOS_RenderScene( const refdef_t *fd );
+#endif
 void	SCR_FillRect( float x, float y, float width, float height, 
 					 const float *color );
 void	SCR_DrawPic( float x, float y, float width, float height, qhandle_t hShader );
@@ -640,4 +644,24 @@ qboolean CL_VideoRecording( void );
 // cl_main.c
 //
 void CL_WriteDemoMessage ( msg_t *msg, int headerBytes );
+
+#ifdef IOS
+void Sys_ShowPauseMenu( qboolean visible );
+int CL_IsPauseMenuOpen( void );
+void CL_OpenPauseMenu( void );
+void CL_ClosePauseMenu( void );
+void CL_RestartArena( void );
+void CL_LeaveArena( void );
+void CL_ExitGame( void );
+void CL_ExecuteConsole( const char *text );
+int CL_GetCvarInt( const char *name );
+void CL_GetCvarString( const char *name, char *out, int outSize );
+void CL_SetTeam( const char *team );
+void CL_SendTeamOrder( const char *message );
+int CL_CanManageBots( void );
+int CL_CanUseTeamOrders( void );
+void CL_BuildServerInfo( char *buf, int bufsize );
+void CL_AddBotCommand( const char *name, int skill );
+void CL_KickBotByName( const char *name );
+#endif
 
