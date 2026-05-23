@@ -27,6 +27,7 @@ extension SDL_uikitviewcontroller {
         static var _f1Button = UIButton()
         static var _prevWeaponButton = UIButton()
         static var _nextWeaponButton = UIButton()
+        static var _lookButton = LookTouchPad(frame: .zero)
         static var _controlsInstalled = false
         static var _pauseMenuPanel: UIView?
         static var _pauseMenuScroll: UIScrollView?
@@ -132,6 +133,11 @@ extension SDL_uikitviewcontroller {
         }
     }
 
+    var lookButton: LookTouchPad {
+        get { Holder._lookButton }
+        set { Holder._lookButton = newValue }
+    }
+
     private func styleOverlayButton(_ button: UIButton, title: String, fontSize: CGFloat = 13) {
         button.setTitle(title, for: .normal)
         button.titleLabel?.font = UIFont.boldSystemFont(ofSize: fontSize)
@@ -151,9 +157,16 @@ extension SDL_uikitviewcontroller {
         if !Holder._controlsInstalled {
             Holder._controlsInstalled = true
             createOnScreenControlViews()
+            applyTouchJoystickCvars()
         }
 
         layoutOnScreenControls(in: view.bounds)
+    }
+
+    private func applyTouchJoystickCvars() {
+        CL_ExecuteConsole(
+            "j_yaw_axis 0; j_side_axis 4; j_side 0; j_forward_axis 1; j_forward -2; j_yaw 1; cl_run 1; sensitivity 10\n"
+        )
     }
 
     private func createOnScreenControlViews() {
@@ -172,6 +185,12 @@ extension SDL_uikitviewcontroller {
         jumpButton.addTarget(self, action: #selector(self.jumpPressed), for: .touchDown)
         jumpButton.addTarget(self, action: #selector(self.jumpReleased), for: .touchUpInside)
         jumpButton.alpha = 0.5
+
+        lookButton = LookTouchPad(frame: CGRect(x: rect.width - 70, y: rect.height - 70, width: 62, height: 62))
+        lookButton.onLookDelta = { dx, dy in
+            let t = Int32(Sys_Milliseconds())
+            CL_MouseEvent(Int32(dx * 16.0), Int32(dy * 16.0), t, qboolean(0))
+        }
 
         let joySize = CGSize(width: 100, height: 100)
         joystickView = JoyStickView(frame: CGRect(
@@ -215,6 +234,7 @@ extension SDL_uikitviewcontroller {
         view.addSubview(joystickView)
         view.addSubview(fireButton)
         view.addSubview(jumpButton)
+        view.addSubview(lookButton)
         view.addSubview(escapeButton)
         view.addSubview(f1Button)
 
@@ -222,6 +242,7 @@ extension SDL_uikitviewcontroller {
         view.bringSubviewToFront(prevWeaponButton)
         view.bringSubviewToFront(nextWeaponButton)
         view.bringSubviewToFront(f1Button)
+        view.bringSubviewToFront(lookButton)
     }
 
     private func updateSafeAreaInsetsForEngine() {
@@ -252,6 +273,9 @@ extension SDL_uikitviewcontroller {
         let controlMargin: CGFloat = 22
         let menuSize = CGSize(width: 52, height: 44)
         let weaponSize = CGSize(width: 48, height: 64)
+        let actionSize: CGFloat = 75
+        let lookSize: CGFloat = 58
+        let stackGap: CGFloat = 10
 
         joystickView.frame = CGRect(
             x: safeRect.minX + 50,
@@ -259,17 +283,28 @@ extension SDL_uikitviewcontroller {
             width: joySize.width,
             height: joySize.height
         )
+
         fireButton.frame = CGRect(
             x: safeRect.maxX - 155,
             y: safeRect.maxY - 90,
-            width: 75,
-            height: 75
+            width: actionSize,
+            height: actionSize
         )
         jumpButton.frame = CGRect(
             x: safeRect.maxX - 90,
             y: safeRect.maxY - 135,
-            width: 75,
-            height: 75
+            width: actionSize,
+            height: actionSize
+        )
+
+        let clusterMinX = min(fireButton.frame.minX, jumpButton.frame.minX)
+        let clusterMaxX = max(fireButton.frame.maxX, jumpButton.frame.maxX)
+        let clusterMinY = min(fireButton.frame.minY, jumpButton.frame.minY)
+        lookButton.frame = CGRect(
+            x: clusterMinX + (clusterMaxX - clusterMinX - lookSize) / 2,
+            y: clusterMinY - stackGap - lookSize,
+            width: lookSize,
+            height: lookSize
         )
         escapeButton.frame = CGRect(
             x: safeRect.minX + controlMargin,
@@ -391,6 +426,7 @@ extension SDL_uikitviewcontroller {
     private func setGameControlsHidden(_ menuOpen: Bool) {
         fireButton.isHidden = menuOpen
         jumpButton.isHidden = menuOpen
+        lookButton.isHidden = menuOpen
         joystickView.isHidden = menuOpen
         prevWeaponButton.isHidden = menuOpen
         nextWeaponButton.isHidden = menuOpen
@@ -399,14 +435,7 @@ extension SDL_uikitviewcontroller {
 
         if menuOpen {
             joystickView.delegate = nil
-            Key_Event(132, qboolean(0), qboolean(1))
-            Key_Event(133, qboolean(0), qboolean(1))
-            Key_Event(134, qboolean(0), qboolean(1))
-            Key_Event(135, qboolean(0), qboolean(1))
-            cl_joyscale_x.0 = 0
-            cl_joyscale_x.1 = 0
-            cl_joyscale_y.0 = 0
-            cl_joyscale_y.1 = 0
+            resetTouchJoystickAxes()
         } else {
             joystickView.delegate = self
         }
@@ -777,43 +806,47 @@ extension SDL_uikitviewcontroller {
 }
 
 extension SDL_uikitviewcontroller: JoystickDelegate {
-    
-    func handleJoyStickPosition(x: CGFloat, y: CGFloat) {
 
-        if y > 0 {
-            cl_joyscale_y.0 = Int32(abs(y) * 60)
-            Key_Event(132, qboolean(1), qboolean(1))
-            Key_Event(133, qboolean(0), qboolean(1))
-        } else if y < 0 {
-            cl_joyscale_y.1 = Int32(abs(y) * 60)
-            Key_Event(132, qboolean(0), qboolean(1))
-            Key_Event(133, qboolean(1), qboolean(1))
-        } else {
-            cl_joyscale_y.0 = 0
-            cl_joyscale_y.1 = 0
-            Key_Event(132, qboolean(0), qboolean(1))
-            Key_Event(133, qboolean(0), qboolean(1))
-        }
-        
-        if x > 0.25 {
-            cl_joyscale_x.0 = Int32(abs(y) * 20)
-            Key_Event(135, qboolean(1), qboolean(1))
-            Key_Event(134, qboolean(0), qboolean(1))
-        } else if x < -0.25 {
-            cl_joyscale_x.1 = Int32(abs(y) * 20)
-            Key_Event(135, qboolean(0), qboolean(1))
-            Key_Event(134, qboolean(1), qboolean(1))
-        } else {
-            cl_joyscale_x.0 = 0
-            cl_joyscale_x.1 = 0
-            Key_Event(135, qboolean(0), qboolean(1))
-            Key_Event(134, qboolean(0), qboolean(1))
-        }
-        
+    /// j_forward_axis = 1, j_yaw_axis = 0 (horizontal stick = turn left/right).
+    private static let joyAxisForward = 1
+    private static let joyAxisYaw = 0
+    private static let joyMoveGain: CGFloat = 1.35
+    private static let joyDeadZone: CGFloat = 0.08
+    private static let joyResponseExponent: CGFloat = 1.0
+
+    private func resetTouchJoystickAxes() {
+        let t = Int32(Sys_Milliseconds())
+        CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisYaw), 0, t)
+        CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisForward), 0, t)
     }
-    
+
+    private func applyJoystickResponse(_ value: CGFloat) -> CGFloat {
+        let v = max(-1.0, min(1.0, value))
+        let absV = abs(v)
+        if absV < SDL_uikitviewcontroller.joyDeadZone {
+            return 0
+        }
+        let scaled = (absV - SDL_uikitviewcontroller.joyDeadZone)
+            / (1.0 - SDL_uikitviewcontroller.joyDeadZone)
+        let curved = pow(scaled, SDL_uikitviewcontroller.joyResponseExponent)
+        return v < 0 ? -curved : curved
+    }
+
+    func handleJoyStickPosition(x: CGFloat, y: CGFloat) {
+        let yaw = applyJoystickResponse(x)
+        let forward = applyJoystickResponse(y)
+        let t = Int32(Sys_Milliseconds())
+
+        // j_forward=-2, cl_run=1 (see applyTouchJoystickCvars).
+        let forwardScaled = -forward * 127.0 * SDL_uikitviewcontroller.joyMoveGain
+        let forwardAxis = Int32(max(-127, min(127, forwardScaled.rounded())))
+        let yawAxis = Int32(-yaw * 127.0)
+
+        CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisYaw), yawAxis, t)
+        CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisForward), forwardAxis, t)
+    }
+
     func handleJoyStick(angle: CGFloat, displacement: CGFloat) {
-//        print("angle: \(angle) displacement: \(displacement)")
     }
-    
+
 }

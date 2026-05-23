@@ -37,8 +37,7 @@ typedef struct {
     qboolean    wasPressed;        // set when down, not cleared when up
 } kbutton_t;
 
-int cl_joyscale_x[2];
-int cl_joyscale_y[2];
+void CL_JoystickEvent( int axis, int value, int time );
 
 void CL_MouseEvent( int dx, int dy, int time, qboolean absolute );
 

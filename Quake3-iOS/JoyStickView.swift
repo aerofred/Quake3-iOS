@@ -230,8 +230,40 @@ public final class JoyStickView: UIView {
      Reset handle position so that it is in the center of the base.
      */
     private func resetPosition() {
-        guard superview != nil else { return }
-        updateLocation(location: CGPoint(x: frame.midX, y: frame.midY))
+        if movable, superview != nil {
+            updateLocation(location: CGPoint(x: frame.midX, y: frame.midY))
+        } else {
+            updateLocationFixed(location: bounds.mid)
+        }
+    }
+
+    /// Fixed-base joystick: finger position is in this view's coordinates.
+    private func updateLocationFixed(location: CGPoint) {
+        guard radius > 0 else { return }
+
+        var delta = location - bounds.mid
+        let newDisplacement = delta.magnitude / radius
+        let newAngleRadians = atan2f(Float(delta.dx), Float(delta.dy))
+
+        if newDisplacement > 1.0 {
+            let scale = radius / delta.magnitude
+            delta = CGVector(dx: delta.dx * scale, dy: delta.dy * scale)
+        }
+
+        handleImageView.center = bounds.mid + delta
+
+        let newClampedDisplacement = min(newDisplacement, 1.0)
+        if newClampedDisplacement != displacement || newAngleRadians != lastAngleRadians {
+            displacement = newClampedDisplacement
+            lastAngleRadians = newAngleRadians
+            angle = newClampedDisplacement != 0.0
+                ? CGFloat(180.0 - newAngleRadians * 180.0 / Float.pi) : 0.0
+            delegate?.handleJoyStick(angle: angle, displacement: displacement)
+
+            let normX = max(-1.0, min(1.0, delta.dx / radius))
+            let normY = max(-1.0, min(1.0, -delta.dy / radius))
+            delegate?.handleJoyStickPosition(x: normX, y: normY)
+        }
     }
     
     /**
@@ -239,7 +271,11 @@ public final class JoyStickView: UIView {
      - parameter touch: the UITouch instance describing where the finger/pencil is
      */
     private func updatePosition(touch: UITouch) {
-        updateLocation(location: touch.location(in: superview!))
+        if movable, let superview = superview {
+            updateLocation(location: touch.location(in: superview))
+        } else {
+            updateLocationFixed(location: touch.location(in: self))
+        }
     }
     
     /**
@@ -329,10 +365,9 @@ public final class JoyStickView: UIView {
             
             //            print("delta x: \(delta.dx) delta y: \(delta.dy)")
             
-            let new_x = (delta.dx / (radius * 2))
-            let new_y = (delta.dy / (radius * 2)) * -1
-            //            print("new_x: \(new_x) new_y: \(new_y)")
-            self.delegate?.handleJoyStickPosition(x: new_x, y: new_y)
+            let normX = max(-1.0, min(1.0, delta.dx / radius))
+            let normY = max(-1.0, min(1.0, -delta.dy / radius))
+            self.delegate?.handleJoyStickPosition(x: normX, y: normY)
         }
     }
 }

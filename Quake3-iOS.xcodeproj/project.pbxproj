@@ -10,6 +10,7 @@
 		A144021A23ABEC6E00491C86 /* BotCollectionViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A144021923ABEC6E00491C86 /* BotCollectionViewCell.swift */; };
 		A144021B23ABEC6E00491C86 /* BotCollectionViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A144021923ABEC6E00491C86 /* BotCollectionViewCell.swift */; };
 		A1510399210B7A390087EA86 /* JoyStickView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1510398210B7A390087EA86 /* JoyStickView.swift */; };
+		A1LOOK2505200002 /* LookTouchPad.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LOOK2505200001 /* LookTouchPad.swift */; };
 		A151039C210B7A890087EA86 /* CoreGraphics+Additions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A151039B210B7A890087EA86 /* CoreGraphics+Additions.swift */; };
 		A151039F210D50D50087EA86 /* dpquake.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A151039E210D50D40087EA86 /* dpquake.ttf */; };
 		A15103A1210D50DC0087EA86 /* dpquake.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A151039E210D50D40087EA86 /* dpquake.ttf */; };
@@ -487,6 +488,7 @@
 /* Begin PBXFileReference section */
 		A144021923ABEC6E00491C86 /* BotCollectionViewCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotCollectionViewCell.swift; sourceTree = "<group>"; };
 		A1510398210B7A390087EA86 /* JoyStickView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoyStickView.swift; sourceTree = "<group>"; };
+		A1LOOK2505200001 /* LookTouchPad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookTouchPad.swift; sourceTree = "<group>"; };
 		A151039B210B7A890087EA86 /* CoreGraphics+Additions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreGraphics+Additions.swift"; sourceTree = "<group>"; };
 		A151039E210D50D40087EA86 /* dpquake.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = dpquake.ttf; sourceTree = "<group>"; };
 		A15103A3210D5DFF0087EA86 /* TiersListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TiersListViewController.swift; sourceTree = "<group>"; };
@@ -907,6 +909,7 @@
 				A1FRED2505200004 /* MapCatalog.swift */,
 				A179BFF2210142FB00D3C611 /* Info.plist */,
 				A1510398210B7A390087EA86 /* JoyStickView.swift */,
+				A1LOOK2505200001 /* LookTouchPad.swift */,
 				A179BFEF210142FB00D3C611 /* LaunchScreen.storyboard */,
 				A179BFEA210142FA00D3C611 /* Main.storyboard */,
 				A15AA929211B470200DE867F /* MainMenuViewController.swift */,
@@ -1779,6 +1782,7 @@
 				A179C3482101472E00D3C611 /* tr_noise.c in Sources */,
 				A196B6C92115F7C50031CEB8 /* MasterServerController.swift in Sources */,
 				A1510399210B7A390087EA86 /* JoyStickView.swift in Sources */,
+				A1LOOK2505200002 /* LookTouchPad.swift in Sources */,
 				A179C2FC2101472E00D3C611 /* jdapistd.c in Sources */,
 				A17FF2802398C93A0003D2E5 /* BotMatchMapViewController.swift in Sources */,
 				A179C2DE2101472E00D3C611 /* be_aas_entity.c in Sources */,
