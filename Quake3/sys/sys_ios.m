@@ -88,7 +88,14 @@ void Sys_ShowPauseMenu( qboolean visible ) {
         return;
     }
     SDL_uikitviewcontroller *rootVC = (SDL_uikitviewcontroller *)GetSDLViewController( SDL_window );
-    [rootVC setPauseMenuVisible:visible ? YES : NO];
+    void (^showBlock)(void) = ^{
+        [rootVC setPauseMenuVisible:visible ? YES : NO];
+    };
+    if ( [NSThread isMainThread] ) {
+        showBlock();
+    } else {
+        dispatch_async( dispatch_get_main_queue(), showBlock );
+    }
     #endif
 }
 

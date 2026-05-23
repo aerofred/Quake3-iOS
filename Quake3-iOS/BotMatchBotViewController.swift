@@ -23,46 +23,42 @@ class BotMatchBotViewController: UIViewController {
     @IBOutlet weak var addButton: UIButton!
     @IBOutlet weak var subtractButton: UIButton!
 
-    var delegate:BotMatchProtocol?
-    
-    var difficulty:Float = 3.0
+    var delegate: BotMatchProtocol?
+
+    /// Mode pause in-game : envoie les bots choisis au callback au lieu du delegate Bot Match.
+    struct PendingBot {
+        let name: String
+        let skill: Float
+    }
+    var onBotsConfirmed: (([PendingBot]) -> Void)?
+    var onCancelled: (() -> Void)?
+
+    var difficulty: Float = 3.0
     var selectedBot = ""
     var selectedIcon = ""
     var botQuantity = 1
-    
-    let bots:[(name: String, icon: String)] = [(name: "Anarki", icon:"graphics/anarki/icon_default.tga"),
-                                            (name: "Angel", icon:"graphics/lucy/icon_angel.tga"),
-                                            (name: "Biker", icon:"graphics/biker/icon_default.tga"),
-                                            (name: "Bitterman", icon:"graphics/bitterman/icon_default.tga"),
-                                            (name: "Bones", icon:"graphics/bones/icon_default.tga"),
-                                            (name: "Cadavre", icon:"graphics/biker/icon_cadavre.tga"),
-                                            (name: "Crash", icon:"graphics/crash/icon_default.tga"),
-                                            (name: "Daemia", icon:"graphics/major/icon_daemia.tga"),
-                                            (name: "Doom", icon:"graphics/doom/icon_default.tga"),
-                                            (name: "Gorre", icon:"graphics/visor/icon_gorre.tga"),
-                                            (name: "Grunt", icon:"graphics/grunt/icon_default.tga"),
-                                            (name: "Hossman", icon:"graphics/biker/icon_hossman.tga"),
-                                            (name: "Hunter", icon:"graphics/hunter/icon_default.tga"),
-                                            (name: "Keel", icon:"graphics/keel/icon_default.tga"),
-                                            (name: "Klesk", icon:"graphics/klesk/icon_default.tga"),
-                                            (name: "Lucy", icon:"graphics/lucy/icon_default.tga"),
-                                            (name: "Major", icon:"graphics/major/icon_default.tga"),
-                                            (name: "Mynx", icon:"graphics/mynx/icon_default.tga"),
-                                            (name: "Orbb", icon:"graphics/orbb/icon_default.tga"),
-                                            (name: "Patriot", icon:"graphics/razor/icon_patriot.tga"),
-                                            (name: "Phobos", icon:"graphics/doom/icon_phobos.tga"),
-                                            (name: "Ranger", icon:"graphics/ranger/icon_default.tga"),
-                                            (name: "Razor", icon:"graphics/razor/icon_default.tga"),
-                                            (name: "Sarge", icon:"graphics/sarge/icon_default.tga"),
-                                            (name: "Slash", icon:"graphics/slash/icon_default.tga"),
-                                            (name: "Sorlag", icon:"graphics/sorlag/icon_default.tga"),
-                                            (name: "Stripe", icon:"graphics/grunt/icon_stripe.tga"),
-                                            (name: "TankJr", icon:"graphics/tankjr/icon_default.tga"),
-                                            (name: "Uriel", icon:"graphics/uriel/icon_default.tga"),
-                                            (name: "Visor", icon:"graphics/visor/icon_default.tga"),
-                                            (name: "Wrack", icon:"graphics/ranger/icon_wrack.tga"),
-                                            (name: "Xaero", icon:"graphics/xaero/icon_default.tga")]
-    
+
+    private var catalogBots: [BotCatalog.Bot] {
+        guard let resourcePath = Bundle.main.resourcePath else { return [] }
+        return BotCatalog.availableBots(bundleResourcePath: resourcePath)
+    }
+
+    private var bots: [(name: String, icon: String)] {
+        catalogBots.map { ($0.name, $0.icon) }
+    }
+
+    private func botAt(_ index: Int) -> BotCatalog.Bot? {
+        guard index >= 0, index < catalogBots.count else { return nil }
+        return catalogBots[index]
+    }
+
+    private var documentsDirectory: String {
+        #if os(tvOS)
+        return (try? FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path) ?? ""
+        #else
+        return (try? FileManager().url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path) ?? ""
+        #endif
+    }
     var skills:[String: Float] = ["0.0": 0.0,
                                   "0.5": 0.5,
                                   "1.0": 1.0,
@@ -78,6 +74,11 @@ class BotMatchBotViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         okButton.isEnabled = false
+        view.isUserInteractionEnabled = true
+        botGrid.isUserInteractionEnabled = true
+        botGrid.allowsSelection = true
+        botGrid.dataSource = self
+        botGrid.delegate = self
 
         #if os(tvOS)
         let documentsDir = try! FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
@@ -111,6 +112,11 @@ class BotMatchBotViewController: UIViewController {
         skill5Button.setImage(UIImage.image(fromTGAFile: skill5URL.path) as? UIImage, for: .normal)
         skill5Button.layer.borderColor = UIColor.red.cgColor
     }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        botGrid.reloadData()
+    }
     
     @IBAction func skill(_ sender: UIButton) {
         
@@ -129,11 +135,27 @@ class BotMatchBotViewController: UIViewController {
     }
     
     @IBAction func cancel(_ sender: UIButton) {
-        self.dismiss(animated: true, completion: nil)
+        let cancelled = onCancelled
+        dismiss(animated: true) {
+            cancelled?()
+        }
     }
-    
+
     @IBAction func ok(_ sender: UIButton) {
         guard !selectedBot.isEmpty else { return }
+
+        if let onBotsConfirmed {
+            var pending: [PendingBot] = []
+            pending.reserveCapacity(botQuantity)
+            for _ in 0..<botQuantity {
+                pending.append(PendingBot(name: selectedBot, skill: difficulty))
+            }
+            let confirmed = onBotsConfirmed
+            dismiss(animated: true) {
+                confirmed(pending)
+            }
+            return
+        }
 
         for _ in 0..<botQuantity {
             delegate?.addBot(bot: selectedBot, difficulty: difficulty, icon: selectedIcon)
@@ -192,32 +214,29 @@ class BotMatchBotViewController: UIViewController {
     
 }
 
-extension BotMatchBotViewController : UICollectionViewDelegate {
+extension BotMatchBotViewController: UICollectionViewDataSource {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return bots.count
+        bots.count
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as! BotCollectionViewCell
+        let bot = bots[indexPath.row]
+        let resourcePath = Bundle.main.resourcePath ?? ""
 
-        #if os(tvOS)
-        let documentsDir = try! FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
-        #else
-        let documentsDir = try! FileManager().url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path
-        #endif
-
-        var destinationURL = URL(fileURLWithPath: documentsDir)
-        destinationURL.appendPathComponent(bots[indexPath.row].icon)
-        
-        let fileManager = FileManager()
-        if fileManager.fileExists(atPath: destinationURL.path) {
-        
-            let img: UIImage = UIImage.image(fromTGAFile: destinationURL.path) as! UIImage
+        if let catalogBot = botAt(indexPath.row),
+           let image = BotCatalog.loadIconImage(
+               for: catalogBot,
+               bundleResourcePath: resourcePath,
+               documentsDir: documentsDirectory
+           ) {
             cell.botAvatar.contentMode = .scaleAspectFit
-            cell.botAvatar.image = img
+            cell.botAvatar.image = image
+        } else {
+            cell.botAvatar.image = nil
         }
-        
-        cell.botName.text = bots[indexPath.row].name
+
+        cell.botName.text = bot.name
 
         if bots[indexPath.row].name == selectedBot {
             cell.botAvatar.layer.borderColor = UIColor.red.cgColor
@@ -230,7 +249,9 @@ extension BotMatchBotViewController : UICollectionViewDelegate {
 
         return cell
     }
-    
+}
+
+extension BotMatchBotViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let cell = collectionView.cellForItem(at: indexPath) as! BotCollectionViewCell
         self.selectedBot = bots[indexPath.row].name
@@ -248,12 +269,8 @@ extension BotMatchBotViewController : UICollectionViewDelegate {
     }
 }
 
-extension BotMatchBotViewController : UICollectionViewDelegateFlowLayout {
-    
+extension BotMatchBotViewController: UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        return CGSize(width: 64, height: 100)
+        CGSize(width: 64, height: 100)
     }
-}
-
-extension BotMatchBotViewController : UICollectionViewDataSource {
 }

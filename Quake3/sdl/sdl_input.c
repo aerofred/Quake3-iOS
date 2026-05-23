@@ -1163,6 +1163,11 @@ static void IN_ProcessEvents( void )
                 case SDL_FINGERDOWN:
                 case SDL_FINGERUP:
                     if ( Key_GetCatcher( ) & KEYCATCH_UI ) {
+#ifdef IOS
+                        if ( CL_IsPauseMenuOpen() ) {
+                            break;
+                        }
+#endif
                         float vidWidth = (float)cls.glconfig.vidWidth;
                         float vidHeight = (float)cls.glconfig.vidHeight;
                         float pixelX = e.tfinger.x * vidWidth;

@@ -7,6 +7,536 @@
 
 import UIKit
 
+fileprivate final class PauseMenuViewController: UIViewController {
+    weak var gameController: SDL_uikitviewcontroller?
+
+    private let gridStack = UIStackView()
+    private var buttonTargets: [PauseMenuButtonTarget] = []
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.72)
+        view.isUserInteractionEnabled = true
+
+        let title = UILabel()
+        title.text = "PAUSE"
+        title.textColor = .white
+        title.font = UIFont.boldSystemFont(ofSize: 20)
+        title.textAlignment = .center
+        title.translatesAutoresizingMaskIntoConstraints = false
+
+        gridStack.axis = .vertical
+        gridStack.spacing = 6
+        gridStack.distribution = .fillEqually
+        gridStack.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(title)
+        view.addSubview(gridStack)
+
+        let guide = view.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            title.topAnchor.constraint(equalTo: guide.topAnchor, constant: 6),
+            title.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 12),
+            title.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -12),
+            title.heightAnchor.constraint(equalToConstant: 28),
+
+            gridStack.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 6),
+            gridStack.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 12),
+            gridStack.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -12),
+            gridStack.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -6)
+        ])
+
+        rebuildButtons()
+    }
+
+    override var prefersStatusBarHidden: Bool { true }
+
+    func rebuildButtons() {
+        for row in gridStack.arrangedSubviews {
+            gridStack.removeArrangedSubview(row)
+            row.removeFromSuperview()
+        }
+        buttonTargets.removeAll()
+
+        struct MenuItem {
+            let title: String
+            let action: () -> Void
+        }
+
+        var items: [MenuItem] = [
+            MenuItem(title: "Reprendre", action: { [weak self] in self?.gameController?.pauseResumeTapped() }),
+            MenuItem(title: "Équipe", action: { [weak self] in self?.gameController?.pauseTeamTapped() })
+        ]
+        if CL_CanManageBots() != 0 {
+            items.append(MenuItem(title: "Ajouter bot", action: { [weak self] in self?.gameController?.pauseAddBotTapped() }))
+            items.append(MenuItem(title: "Retirer bot", action: { [weak self] in self?.gameController?.pauseRemoveBotTapped() }))
+        }
+        if CL_CanUseTeamOrders() != 0 {
+            items.append(MenuItem(title: "Ordres équipe", action: { [weak self] in self?.gameController?.pauseTeamOrdersTapped() }))
+        }
+        items.append(contentsOf: [
+            MenuItem(title: "Réglages", action: { [weak self] in self?.gameController?.pauseSetupTapped() }),
+            MenuItem(title: "Infos serveur", action: { [weak self] in self?.gameController?.pauseServerInfoTapped() }),
+            MenuItem(title: "Redémarrer", action: { [weak self] in self?.gameController?.pauseRestartTapped() }),
+            MenuItem(title: "Quitter arène", action: { [weak self] in self?.gameController?.pauseLeaveTapped() }),
+            MenuItem(title: "Quitter jeu", action: { [weak self] in self?.gameController?.pauseExitGameTapped() })
+        ])
+
+        let columns = 2
+        var rowStack: UIStackView?
+        for (index, item) in items.enumerated() {
+            if index % columns == 0 {
+                rowStack = UIStackView()
+                rowStack?.axis = .horizontal
+                rowStack?.spacing = 6
+                rowStack?.distribution = .fillEqually
+                gridStack.addArrangedSubview(rowStack!)
+            }
+            let target = PauseMenuButtonTarget(item.action)
+            buttonTargets.append(target)
+            rowStack?.addArrangedSubview(makeButton(title: item.title, target: target))
+        }
+        if items.count % columns == 1 {
+            rowStack?.addArrangedSubview(UIView())
+        }
+    }
+
+    private func makeButton(title: String, target: PauseMenuButtonTarget) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+        button.titleLabel?.numberOfLines = 2
+        button.titleLabel?.textAlignment = .center
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.6
+        button.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+        button.layer.cornerRadius = 8
+        button.clipsToBounds = true
+        button.contentEdgeInsets = UIEdgeInsets(top: 4, left: 6, bottom: 4, right: 6)
+        button.isUserInteractionEnabled = true
+        button.addTarget(target, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+        button.addTarget(self, action: #selector(buttonTouchDown(_:)), for: .touchDown)
+        button.addTarget(self, action: #selector(buttonTouchUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        return button
+    }
+
+    @objc private func buttonTouchDown(_ sender: UIButton) {
+        sender.backgroundColor = UIColor.white.withAlphaComponent(0.28)
+    }
+
+    @objc private func buttonTouchUp(_ sender: UIButton) {
+        sender.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+    }
+}
+
+fileprivate final class PauseMenuButtonTarget: NSObject {
+    let action: () -> Void
+
+    init(_ action: @escaping () -> Void) {
+        self.action = action
+    }
+
+    @objc func tapped() {
+        action()
+    }
+}
+
+fileprivate final class PauseBotPickerViewController: UIViewController {
+    struct PendingBot {
+        let name: String
+        let skill: Float
+    }
+
+    var onCancelled: (() -> Void)?
+    var onBotsConfirmed: (([PendingBot]) -> Void)?
+
+    private let bots: [BotCatalog.Bot]
+    private let bundleResourcePath: String
+    private let documentsDir: String
+    private let scrollView = UIScrollView()
+    private let gridStack = UIStackView()
+    private let quantityLabel = UILabel()
+    private let okButton = UIButton(type: .system)
+    private var buttonTargets: [PauseMenuButtonTarget] = []
+    private var selectedBot: BotCatalog.Bot?
+    private var skill: Float = 3
+    private var quantity = 1
+    private var skillButtons: [UIButton] = []
+    private var botButtons: [UIButton] = []
+
+    init(bots: [BotCatalog.Bot], bundleResourcePath: String, documentsDir: String) {
+        self.bots = bots
+        self.bundleResourcePath = bundleResourcePath
+        self.documentsDir = documentsDir
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var prefersStatusBarHidden: Bool { true }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .black
+        view.isUserInteractionEnabled = true
+
+        let title = UILabel()
+        title.text = "AJOUTER BOT"
+        title.textColor = .white
+        title.font = UIFont.boldSystemFont(ofSize: 20)
+        title.textAlignment = .center
+        title.translatesAutoresizingMaskIntoConstraints = false
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.alwaysBounceVertical = true
+
+        gridStack.axis = .vertical
+        gridStack.spacing = 8
+        gridStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let controls = makeControls()
+        controls.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(title)
+        view.addSubview(scrollView)
+        view.addSubview(controls)
+        scrollView.addSubview(gridStack)
+
+        let guide = view.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            title.topAnchor.constraint(equalTo: guide.topAnchor, constant: 8),
+            title.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 12),
+            title.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -12),
+            title.heightAnchor.constraint(equalToConstant: 28),
+
+            scrollView.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
+            scrollView.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 12),
+            scrollView.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -12),
+            scrollView.bottomAnchor.constraint(equalTo: controls.topAnchor, constant: -8),
+
+            gridStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            gridStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            gridStack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            gridStack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            gridStack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+
+            controls.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 12),
+            controls.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -12),
+            controls.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -8),
+            controls.heightAnchor.constraint(equalToConstant: 96)
+        ])
+
+        buildBotButtons()
+        updateSelectionUI()
+        updateSkillUI()
+        updateQuantityUI()
+    }
+
+    private func buildBotButtons() {
+        let columns = 4
+        var row: UIStackView?
+
+        for (index, bot) in bots.enumerated() {
+            if index % columns == 0 {
+                row = UIStackView()
+                row?.axis = .horizontal
+                row?.spacing = 8
+                row?.distribution = .fillEqually
+                gridStack.addArrangedSubview(row!)
+            }
+
+            let button = makeBotButton(bot)
+            botButtons.append(button)
+            let target = PauseMenuButtonTarget { [weak self] in
+                self?.selectedBot = bot
+                self?.updateSelectionUI()
+            }
+            buttonTargets.append(target)
+            button.addTarget(target, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+            row?.addArrangedSubview(button)
+        }
+
+        if let row, bots.count % columns != 0 {
+            for _ in 0..<(columns - bots.count % columns) {
+                row.addArrangedSubview(UIView())
+            }
+        }
+    }
+
+    private func makeBotButton(_ bot: BotCatalog.Bot) -> UIButton {
+        let button = UIButton(type: .system)
+        button.tintColor = .white
+        button.backgroundColor = UIColor.white.withAlphaComponent(0.10)
+        button.layer.cornerRadius = 8
+        button.layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
+        button.layer.borderWidth = 1
+        button.clipsToBounds = true
+        button.heightAnchor.constraint(equalToConstant: 92).isActive = true
+
+        button.setTitle(bot.name, for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.setImage(
+            BotCatalog.loadIconImage(
+                for: bot,
+                bundleResourcePath: bundleResourcePath,
+                documentsDir: documentsDir
+            ),
+            for: .normal
+        )
+        button.imageView?.contentMode = .scaleAspectFit
+        button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 4, bottom: 4, right: 4)
+        button.imageEdgeInsets = UIEdgeInsets(top: 0, left: 18, bottom: 24, right: 18)
+        button.titleEdgeInsets = UIEdgeInsets(top: 58, left: -54, bottom: 0, right: 0)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
+        button.titleLabel?.numberOfLines = 1
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.6
+        return button
+    }
+
+    private func makeControls() -> UIStackView {
+        let root = UIStackView()
+        root.axis = .vertical
+        root.spacing = 8
+        root.distribution = .fillEqually
+
+        let skillRow = UIStackView()
+        skillRow.axis = .horizontal
+        skillRow.spacing = 6
+        skillRow.distribution = .fillEqually
+        for value in 1...5 {
+            let button = makeControlButton(title: "\(value)")
+            let target = PauseMenuButtonTarget { [weak self] in
+                self?.skill = Float(value)
+                self?.updateSkillUI()
+            }
+            buttonTargets.append(target)
+            button.addTarget(target, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+            skillButtons.append(button)
+            skillRow.addArrangedSubview(button)
+        }
+
+        let actionRow = UIStackView()
+        actionRow.axis = .horizontal
+        actionRow.spacing = 8
+        actionRow.distribution = .fill
+
+        let cancel = makeControlButton(title: "Annuler")
+        let cancelTarget = PauseMenuButtonTarget { [weak self] in
+            self?.dismiss(animated: false) {
+                self?.onCancelled?()
+            }
+        }
+        buttonTargets.append(cancelTarget)
+        cancel.addTarget(cancelTarget, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+
+        let minus = makeControlButton(title: "-")
+        let minusTarget = PauseMenuButtonTarget { [weak self] in
+            guard let self else { return }
+            self.quantity = max(1, self.quantity - 1)
+            self.updateQuantityUI()
+        }
+        buttonTargets.append(minusTarget)
+        minus.addTarget(minusTarget, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+
+        quantityLabel.textColor = .white
+        quantityLabel.textAlignment = .center
+        quantityLabel.font = UIFont.boldSystemFont(ofSize: 18)
+        quantityLabel.widthAnchor.constraint(equalToConstant: 44).isActive = true
+
+        let plus = makeControlButton(title: "+")
+        let plusTarget = PauseMenuButtonTarget { [weak self] in
+            guard let self else { return }
+            self.quantity += 1
+            self.updateQuantityUI()
+        }
+        buttonTargets.append(plusTarget)
+        plus.addTarget(plusTarget, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+
+        okButton.setTitle("OK", for: .normal)
+        styleControlButton(okButton)
+        let okTarget = PauseMenuButtonTarget { [weak self] in
+            self?.confirm()
+        }
+        buttonTargets.append(okTarget)
+        okButton.addTarget(okTarget, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+
+        actionRow.addArrangedSubview(cancel)
+        actionRow.addArrangedSubview(minus)
+        actionRow.addArrangedSubview(quantityLabel)
+        actionRow.addArrangedSubview(plus)
+        actionRow.addArrangedSubview(okButton)
+
+        root.addArrangedSubview(skillRow)
+        root.addArrangedSubview(actionRow)
+        return root
+    }
+
+    private func makeControlButton(title: String) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle(title, for: .normal)
+        styleControlButton(button)
+        return button
+    }
+
+    private func styleControlButton(_ button: UIButton) {
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.65
+        button.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+        button.layer.cornerRadius = 8
+        button.layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
+        button.layer.borderWidth = 1
+        button.contentEdgeInsets = UIEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+    }
+
+    private func updateSelectionUI() {
+        okButton.isEnabled = selectedBot != nil
+        okButton.alpha = selectedBot == nil ? 0.45 : 1.0
+
+        for (index, button) in botButtons.enumerated() {
+            let selected = bots[index] == selectedBot
+            button.backgroundColor = selected ? UIColor.red.withAlphaComponent(0.35) : UIColor.white.withAlphaComponent(0.10)
+            button.layer.borderColor = selected ? UIColor.red.cgColor : UIColor.white.withAlphaComponent(0.20).cgColor
+            button.layer.borderWidth = selected ? 2 : 1
+        }
+    }
+
+    private func updateSkillUI() {
+        for (index, button) in skillButtons.enumerated() {
+            let selected = Int(skill) == index + 1
+            button.backgroundColor = selected ? UIColor.red.withAlphaComponent(0.35) : UIColor.white.withAlphaComponent(0.12)
+            button.layer.borderColor = selected ? UIColor.red.cgColor : UIColor.white.withAlphaComponent(0.20).cgColor
+        }
+    }
+
+    private func updateQuantityUI() {
+        quantityLabel.text = "\(quantity)"
+    }
+
+    private func confirm() {
+        guard let selectedBot else { return }
+        var pending: [PendingBot] = []
+        pending.reserveCapacity(quantity)
+        for _ in 0..<quantity {
+            pending.append(PendingBot(name: selectedBot.name, skill: skill))
+        }
+        dismiss(animated: false) { [weak self] in
+            self?.onBotsConfirmed?(pending)
+        }
+    }
+}
+
+/// Fenêtre UIKit du menu (AppDelegate) au-dessus du rendu SDL pour les écrans storyboard in-game.
+fileprivate enum InGameNativeUI {
+    private static var savedSDLWindowLevel = UIWindow.Level.normal
+    private static weak var sdlWindow: UIWindow?
+    private static var overlayWindow: UIWindow?
+    private static var overlayRootViewController: UIViewController?
+    static var isActive = false
+
+    static func appDelegate() -> AppDelegate? {
+        UIApplication.shared.delegate as? AppDelegate
+    }
+
+    static func topViewController(from root: UIViewController) -> UIViewController {
+        var top = root
+        if let nav = top as? UINavigationController, let visible = nav.visibleViewController {
+            top = visible
+        }
+        while let presented = top.presentedViewController {
+            top = presented
+            if let nav = top as? UINavigationController, let visible = nav.visibleViewController {
+                top = visible
+            }
+        }
+        return top
+    }
+
+    static func presenter() -> UIViewController? {
+        if let overlayRootViewController {
+            return topViewController(from: overlayRootViewController)
+        }
+        guard let app = appDelegate() else { return nil }
+        return topViewController(from: app.rootNavigationController)
+    }
+
+    static func activate(sdlGameWindow: UIWindow?) {
+        if !isActive {
+            if let sdlGameWindow = sdlGameWindow {
+                savedSDLWindowLevel = sdlGameWindow.windowLevel
+                sdlWindow = sdlGameWindow
+            }
+        }
+        isActive = true
+
+        let root = UIViewController()
+        root.view.backgroundColor = .clear
+        root.view.isUserInteractionEnabled = true
+        root.modalPresentationStyle = .fullScreen
+        overlayRootViewController = root
+
+        let window: UIWindow
+        if #available(iOS 13.0, *) {
+            if let scene = sdlGameWindow?.windowScene
+                ?? UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .first(where: { $0.activationState == .foregroundActive })
+                ?? UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .first {
+                window = UIWindow(windowScene: scene)
+            } else {
+                window = UIWindow(frame: UIScreen.main.bounds)
+            }
+        } else {
+            window = UIWindow(frame: UIScreen.main.bounds)
+        }
+
+        sdlGameWindow?.isUserInteractionEnabled = false
+        window.frame = sdlGameWindow?.bounds ?? UIScreen.main.bounds
+        window.rootViewController = root
+        window.backgroundColor = .clear
+        window.isUserInteractionEnabled = true
+        window.windowLevel = UIWindow.Level(
+            rawValue: max(UIWindow.Level.alert.rawValue, sdlGameWindow?.windowLevel.rawValue ?? UIWindow.Level.normal.rawValue) + 1
+        )
+        window.makeKeyAndVisible()
+        overlayWindow = window
+    }
+
+    static func deactivate() {
+        guard isActive else { return }
+
+        isActive = false
+        overlayRootViewController?.dismiss(animated: false)
+        overlayWindow?.isHidden = true
+        overlayWindow?.rootViewController = nil
+        overlayRootViewController = nil
+        overlayWindow = nil
+
+        sdlWindow?.isUserInteractionEnabled = true
+        sdlWindow?.windowLevel = savedSDLWindowLevel
+        sdlWindow?.makeKeyAndVisible()
+        sdlWindow = nil
+    }
+
+    static func present(
+        _ viewController: UIViewController,
+        from sdlGameWindow: UIWindow?,
+        animated: Bool,
+        completion: (() -> Void)? = nil
+    ) {
+        activate(sdlGameWindow: sdlGameWindow)
+        presenter()?.present(viewController, animated: animated, completion: completion)
+    }
+}
+
 extension Notification.Name {
     static let quakeReturnToMainMenu = Notification.Name("QuakeReturnToMainMenu")
 }
@@ -29,9 +559,9 @@ extension SDL_uikitviewcontroller {
         static var _nextWeaponButton = UIButton()
         static var _lookButton = LookTouchPad(frame: .zero)
         static var _controlsInstalled = false
-        static var _pauseMenuPanel: UIView?
-        static var _pauseMenuScroll: UIScrollView?
-        static var _pauseMenuStack: UIStackView?
+        fileprivate static weak var _pauseMenuViewController: PauseMenuViewController?
+        static weak var _pauseMenuGameController: SDL_uikitviewcontroller?
+        static var _pauseMenuShowing = false
     }
     
     var fireButton:UIButton {
@@ -405,22 +935,18 @@ extension SDL_uikitviewcontroller {
 
     @objc func setPauseMenuVisible(_ visible: Bool) {
         if visible {
-            ensurePauseMenuPanel()
-            Holder._pauseMenuPanel?.isHidden = false
-            if let panel = Holder._pauseMenuPanel {
-                view.bringSubviewToFront(panel)
-            }
+            showPauseOverlay()
         } else {
-            Holder._pauseMenuPanel?.isHidden = true
+            hidePauseOverlay()
+            InGameNativeUI.deactivate()
         }
         setGameControlsHidden(visible)
     }
 
     @objc func toggleControls(_ menuOpen: Bool) {
-        if CL_IsPauseMenuOpen() == 0 {
-            Holder._pauseMenuPanel?.isHidden = true
-        }
-        setGameControlsHidden(menuOpen)
+        // Ne pas rappeler showPauseOverlay ici : Sys_ToggleControls tourne chaque frame
+        // et remettait le menu pause par-dessus l'écran « Ajouter bot ».
+        setGameControlsHidden(menuOpen || CL_IsPauseMenuOpen() != 0)
     }
 
     private func setGameControlsHidden(_ menuOpen: Bool) {
@@ -441,158 +967,110 @@ extension SDL_uikitviewcontroller {
         }
     }
 
-    private func ensurePauseMenuPanel() {
-        if Holder._pauseMenuPanel != nil {
-            layoutPauseMenuPanel()
+    private func showPauseOverlay() {
+        guard !Holder._pauseMenuShowing else { return }
+        if presentedViewController is PauseMenuViewController {
+            Holder._pauseMenuShowing = true
+            return
+        }
+        guard view.window != nil else {
+            DispatchQueue.main.async { [weak self] in
+                self?.showPauseOverlay()
+            }
             return
         }
 
-        let panel = UIView()
-        panel.backgroundColor = UIColor.black.withAlphaComponent(0.72)
-        panel.isHidden = true
-        panel.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        Holder._pauseMenuGameController = self
+        Holder._pauseMenuShowing = true
 
-        let scroll = UIScrollView()
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.alwaysBounceVertical = true
-        scroll.showsVerticalScrollIndicator = true
+        let pauseVC = PauseMenuViewController()
+        pauseVC.gameController = self
+        pauseVC.modalPresentationStyle = .overFullScreen
+        pauseVC.modalTransitionStyle = .crossDissolve
+        Holder._pauseMenuViewController = pauseVC
+        present(pauseVC, animated: false)
+    }
 
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 8
-        stack.alignment = .fill
-        stack.distribution = .fill
-        stack.translatesAutoresizingMaskIntoConstraints = false
+    /// Retire l’UI du menu pause sans fermer l’état pause moteur (cl_paused / KEYCATCH_UI).
+    private func dismissPauseMenuUI(animated: Bool = false, completion: (() -> Void)? = nil) {
+        Holder._pauseMenuShowing = false
+        Holder._pauseMenuViewController = nil
 
-        let title = UILabel()
-        title.text = "PAUSE"
-        title.textColor = .white
-        title.font = UIFont.boldSystemFont(ofSize: 22)
-        title.textAlignment = .center
-
-        let titleWrapper = UIView()
-        title.translatesAutoresizingMaskIntoConstraints = false
-        titleWrapper.addSubview(title)
-        NSLayoutConstraint.activate([
-            title.leadingAnchor.constraint(equalTo: titleWrapper.leadingAnchor),
-            title.trailingAnchor.constraint(equalTo: titleWrapper.trailingAnchor),
-            title.topAnchor.constraint(equalTo: titleWrapper.topAnchor, constant: 4),
-            title.bottomAnchor.constraint(equalTo: titleWrapper.bottomAnchor, constant: -4),
-            titleWrapper.heightAnchor.constraint(equalToConstant: 36)
-        ])
-        stack.addArrangedSubview(titleWrapper)
-
-        addPauseMenuButton("Reprendre la partie", to: stack, action: #selector(pauseResumeTapped))
-        addPauseMenuButton("Équipe", to: stack, action: #selector(pauseTeamTapped))
-
-        if CL_CanManageBots() != 0 || GameSession.botMatch {
-            addPauseMenuButton("Ajouter un bot", to: stack, action: #selector(pauseAddBotTapped))
-            addPauseMenuButton("Retirer un bot", to: stack, action: #selector(pauseRemoveBotTapped))
+        guard let presented = presentedViewController else {
+            completion?()
+            return
         }
 
-        if CL_CanUseTeamOrders() != 0 {
-            addPauseMenuButton("Ordres d'équipe", to: stack, action: #selector(pauseTeamOrdersTapped))
+        if let pauseVC = presented as? PauseMenuViewController {
+            if pauseVC.presentedViewController != nil {
+                pauseVC.dismiss(animated: false)
+            }
+            dismiss(animated: animated, completion: completion)
+        } else {
+            completion?()
         }
-
-        addPauseMenuButton("Réglages", to: stack, action: #selector(pauseSetupTapped))
-        addPauseMenuButton("Infos serveur", to: stack, action: #selector(pauseServerInfoTapped))
-        addPauseMenuButton("Redémarrer l'arène", to: stack, action: #selector(pauseRestartTapped))
-        addPauseMenuButton("Quitter l'arène", to: stack, action: #selector(pauseLeaveTapped))
-        addPauseMenuButton("Quitter le jeu", to: stack, action: #selector(pauseExitGameTapped))
-
-        scroll.addSubview(stack)
-        panel.addSubview(scroll)
-        view.addSubview(panel)
-
-        let guide = panel.safeAreaLayoutGuide
-        NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: guide.topAnchor, constant: 12),
-            scroll.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -12),
-            scroll.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 20),
-            scroll.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -20),
-
-            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
-            stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor)
-        ])
-
-        Holder._pauseMenuPanel = panel
-        Holder._pauseMenuScroll = scroll
-        Holder._pauseMenuStack = stack
-        layoutPauseMenuPanel()
     }
 
-    private func addPauseMenuButton(_ title: String, to stack: UIStackView, action: Selector) {
-        let button = UIButton(type: .system)
-        button.setTitle(title, for: .normal)
-        button.setTitleColor(.white, for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-        button.titleLabel?.numberOfLines = 2
-        button.titleLabel?.textAlignment = .center
-        button.backgroundColor = UIColor.white.withAlphaComponent(0.12)
-        button.layer.cornerRadius = 8
-        button.contentEdgeInsets = UIEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
-        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
-        button.addTarget(self, action: action, for: .touchUpInside)
-        stack.addArrangedSubview(button)
+    private func hidePauseOverlay() {
+        dismissPauseMenuUI()
     }
 
-    private func layoutPauseMenuPanel() {
-        guard let panel = Holder._pauseMenuPanel else { return }
-        panel.frame = view.bounds
-    }
-
-    private func keyWindowForPresentation() -> UIWindow? {
-        if let window = view.window {
-            return window
+    private func restorePausePanelIfNeeded() {
+        guard CL_IsPauseMenuOpen() != 0 else { return }
+        if presentedViewController is PauseMenuViewController {
+            return
         }
-        return UIApplication.shared.keyWindow
+        InGameNativeUI.deactivate()
+        Holder._pauseMenuShowing = false
+        showPauseOverlay()
     }
 
-    private func topPresenterForPauseAlerts() -> UIViewController {
+    private func finishPauseMenuSubflow() {
+        restorePausePanelIfNeeded()
+    }
+
+    private func pauseAlertPresenter() -> UIViewController {
+        if InGameNativeUI.isActive, let native = InGameNativeUI.presenter() {
+            var top = native
+            while let presented = top.presentedViewController {
+                top = presented
+            }
+            return top
+        }
+        if let pauseVC = Holder._pauseMenuViewController {
+            var top: UIViewController = pauseVC
+            while let presented = top.presentedViewController {
+                top = presented
+            }
+            return top
+        }
+        if let pauseVC = presentedViewController as? PauseMenuViewController {
+            var top: UIViewController = pauseVC
+            while let presented = top.presentedViewController {
+                top = presented
+            }
+            return top
+        }
         var top: UIViewController = self
         while let presented = top.presentedViewController {
             top = presented
         }
-        if let root = keyWindowForPresentation()?.rootViewController {
-            var candidate = root
-            while let presented = candidate.presentedViewController {
-                candidate = presented
-            }
-            return candidate
-        }
         return top
     }
 
-    private func restorePausePanelIfNeeded() {
-        guard CL_IsPauseMenuOpen() != 0, let panel = Holder._pauseMenuPanel else { return }
-        panel.isHidden = false
-        view.bringSubviewToFront(panel)
-    }
-
     private func presentPauseActionSheet(_ alert: UIAlertController) {
-        Holder._pauseMenuPanel?.isHidden = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            let presenter = self.topPresenterForPauseAlerts()
-            if alert.actions.first(where: { $0.style == .cancel }) == nil {
-                alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
-                    self?.restorePausePanelIfNeeded()
-                })
-            }
-            if let popover = alert.popoverPresentationController {
-                popover.sourceView = presenter.view
-                popover.sourceRect = CGRect(
-                    x: presenter.view.bounds.midX,
-                    y: presenter.view.bounds.midY,
-                    width: 1,
-                    height: 1
-                )
-            }
-            presenter.present(alert, animated: true)
+        if alert.actions.first(where: { $0.style == .cancel }) == nil {
+            alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
+                self?.restorePausePanelIfNeeded()
+            })
         }
+        let presenter = pauseAlertPresenter()
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+            popover.permittedArrowDirections = []
+        }
+        presenter.present(alert, animated: true)
     }
 
     private func presentPauseConfirmation(
@@ -600,18 +1078,62 @@ extension SDL_uikitviewcontroller {
         confirmTitle: String,
         onConfirm: @escaping () -> Void
     ) {
-        Holder._pauseMenuPanel?.isHidden = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            let alert = UIAlertController(title: title, message: nil, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
-                self?.restorePausePanelIfNeeded()
-            })
-            alert.addAction(UIAlertAction(title: confirmTitle, style: .destructive) { _ in
-                onConfirm()
-            })
-            self.topPresenterForPauseAlerts().present(alert, animated: true)
+        let alert = UIAlertController(title: title, message: nil, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
+            self?.restorePausePanelIfNeeded()
+        })
+        alert.addAction(UIAlertAction(title: confirmTitle, style: .destructive) { _ in
+            onConfirm()
+        })
+        pauseAlertPresenter().present(alert, animated: true)
+    }
+
+    private func quakeConsole(_ command: String) {
+        var text = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.hasSuffix("\n") {
+            text += "\n"
         }
+        CL_ExecuteConsole(text)
+    }
+
+    private func isTeamGametype() -> Bool {
+        CL_GetCvarInt("g_gametype") >= 3
+    }
+
+    private func makeBotPickerViewController() -> PauseBotPickerViewController? {
+        guard let resourcePath = Bundle.main.resourcePath else { return nil }
+        #if os(tvOS)
+        let documentsDir = (try? FileManager().url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path) ?? ""
+        #else
+        let documentsDir = (try? FileManager().url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).path) ?? ""
+        #endif
+        let bots = BotCatalog.availableBots(bundleResourcePath: resourcePath)
+        guard !bots.isEmpty else { return nil }
+        return PauseBotPickerViewController(bots: bots, bundleResourcePath: resourcePath, documentsDir: documentsDir)
+    }
+
+    private func executeAddBotsViaConsole(_ bots: [PauseBotPickerViewController.PendingBot], team: String) {
+        var delay = 1000
+        for bot in bots {
+            let skill = max(1, min(5, Int(bot.skill.rounded())))
+            quakeConsole("addbot \(bot.name) \(skill) \(team) \(delay)")
+            delay += 1500
+        }
+    }
+
+    private func presentTeamSelectionForAddBots(_ bots: [PauseBotPickerViewController.PendingBot]) {
+        let alert = UIAlertController(title: "Équipe du bot", message: nil, preferredStyle: .actionSheet)
+        let teams = [("Libre", "free"), ("Rouge", "red"), ("Bleue", "blue")]
+        for (title, team) in teams {
+            alert.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                self?.executeAddBotsViaConsole(bots, team: team)
+                self?.finishPauseMenuSubflow()
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
+            self?.finishPauseMenuSubflow()
+        })
+        presentPauseActionSheet(alert)
     }
 
     private func pauseServerInfoText() -> String {
@@ -620,35 +1142,26 @@ extension SDL_uikitviewcontroller {
         return String(cString: buffer)
     }
 
-    @objc private func pauseResumeTapped() {
+    @objc func pauseResumeTapped() {
         CL_ClosePauseMenu()
     }
 
-    @objc private func pauseTeamTapped() {
+    @objc func pauseTeamTapped() {
         let alert = UIAlertController(title: "Choisir une équipe", message: nil, preferredStyle: .actionSheet)
-        alert.addAction(UIAlertAction(title: "Rouge", style: .default) { _ in
-            CL_SetTeam("red")
-            self.restorePausePanelIfNeeded()
-        })
-        alert.addAction(UIAlertAction(title: "Bleue", style: .default) { _ in
-            CL_SetTeam("blue")
-            self.restorePausePanelIfNeeded()
-        })
-        alert.addAction(UIAlertAction(title: "Libre", style: .default) { _ in
-            CL_SetTeam("free")
-            self.restorePausePanelIfNeeded()
-        })
-        alert.addAction(UIAlertAction(title: "Spectateur", style: .default) { _ in
-            CL_SetTeam("spectator")
-            self.restorePausePanelIfNeeded()
-        })
+        let teams = [("Rouge", "red"), ("Bleue", "blue"), ("Libre", "free"), ("Spectateur", "spectator")]
+        for (title, team) in teams {
+            alert.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                self?.quakeConsole("cmd team \(team)")
+                self?.restorePausePanelIfNeeded()
+            })
+        }
         alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
             self?.restorePausePanelIfNeeded()
         })
         presentPauseActionSheet(alert)
     }
 
-    @objc private func pauseTeamOrdersTapped() {
+    @objc func pauseTeamOrdersTapped() {
         let alert = UIAlertController(title: "Ordres d'équipe", message: nil, preferredStyle: .actionSheet)
         let orders = [
             "Tout le monde attaque !",
@@ -657,9 +1170,10 @@ extension SDL_uikitviewcontroller {
             "Gardez la position"
         ]
         for order in orders {
-            alert.addAction(UIAlertAction(title: order, style: .default) { _ in
-                order.withCString { CL_SendTeamOrder($0) }
-                self.restorePausePanelIfNeeded()
+            alert.addAction(UIAlertAction(title: order, style: .default) { [weak self] _ in
+                let escaped = order.replacingOccurrences(of: "\"", with: "\\\"")
+                self?.quakeConsole("say_team \"\(escaped)\"")
+                self?.restorePausePanelIfNeeded()
             })
         }
         alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
@@ -668,31 +1182,27 @@ extension SDL_uikitviewcontroller {
         presentPauseActionSheet(alert)
     }
 
-    @objc private func pauseSetupTapped() {
+    @objc func pauseSetupTapped() {
         let alert = UIAlertController(title: "Réglages rapides", message: nil, preferredStyle: .actionSheet)
-        alert.addAction(UIAlertAction(title: "Volume jeu 50 %", style: .default) { _ in
-            CL_ExecuteConsole("set s_volume 0.5\n")
-            self.restorePausePanelIfNeeded()
-        })
-        alert.addAction(UIAlertAction(title: "Volume jeu 80 %", style: .default) { _ in
-            CL_ExecuteConsole("set s_volume 0.8\n")
-            self.restorePausePanelIfNeeded()
-        })
-        alert.addAction(UIAlertAction(title: "Volume jeu 100 %", style: .default) { _ in
-            CL_ExecuteConsole("set s_volume 1\n")
-            self.restorePausePanelIfNeeded()
-        })
-        alert.addAction(UIAlertAction(title: "Musique 50 %", style: .default) { _ in
-            CL_ExecuteConsole("set s_musicvolume 0.5\n")
-            self.restorePausePanelIfNeeded()
-        })
+        let settings = [
+            ("Volume jeu 50 %", "set s_volume 0.5"),
+            ("Volume jeu 80 %", "set s_volume 0.8"),
+            ("Volume jeu 100 %", "set s_volume 1"),
+            ("Musique 50 %", "set s_musicvolume 0.5")
+        ]
+        for (title, command) in settings {
+            alert.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                self?.quakeConsole(command)
+                self?.restorePausePanelIfNeeded()
+            })
+        }
         alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
             self?.restorePausePanelIfNeeded()
         })
         presentPauseActionSheet(alert)
     }
 
-    @objc private func pauseServerInfoTapped() {
+    @objc func pauseServerInfoTapped() {
         let alert = UIAlertController(
             title: "Infos serveur",
             message: pauseServerInfoText(),
@@ -701,53 +1211,60 @@ extension SDL_uikitviewcontroller {
         alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
             self?.restorePausePanelIfNeeded()
         })
-        Holder._pauseMenuPanel?.isHidden = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.topPresenterForPauseAlerts().present(alert, animated: true)
+        pauseAlertPresenter().present(alert, animated: true)
+    }
+
+    @objc func pauseRestartTapped() {
+        presentPauseConfirmation(title: "Redémarrer l'arène ?", confirmTitle: "Redémarrer") { [weak self] in
+            CL_ClosePauseMenu()
+            self?.quakeConsole("map_restart 0")
         }
     }
 
-    @objc private func pauseRestartTapped() {
-        presentPauseConfirmation(title: "Redémarrer l'arène ?", confirmTitle: "Redémarrer") {
-            CL_RestartArena()
+    @objc func pauseLeaveTapped() {
+        presentPauseConfirmation(title: "Quitter l'arène ?", confirmTitle: "Quitter") { [weak self] in
+            CL_ClosePauseMenu()
+            self?.quakeConsole("disconnect")
         }
     }
 
-    @objc private func pauseLeaveTapped() {
-        presentPauseConfirmation(title: "Quitter l'arène ?", confirmTitle: "Quitter") {
-            CL_LeaveArena()
-        }
-    }
-
-    @objc private func pauseExitGameTapped() {
-        presentPauseConfirmation(title: "Quitter le jeu ?", confirmTitle: "Quitter") {
-            CL_ExitGame()
+    @objc func pauseExitGameTapped() {
+        presentPauseConfirmation(title: "Quitter le jeu ?", confirmTitle: "Quitter") { [weak self] in
+            CL_ClosePauseMenu()
+            self?.quakeConsole("disconnect")
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: .quakeReturnToMainMenu, object: nil)
             }
         }
     }
 
-    @objc private func pauseAddBotTapped() {
-        let bots = GameSession.bots
-        guard !bots.isEmpty else { return }
+    @objc func pauseAddBotTapped() {
+        guard CL_CanManageBots() != 0 else { return }
+        guard let botPicker = makeBotPickerViewController() else { return }
 
-        let alert = UIAlertController(title: "Ajouter un bot", message: nil, preferredStyle: .actionSheet)
-        for bot in bots {
-            alert.addAction(UIAlertAction(title: bot.name, style: .default) { _ in
-                let skill = Int32(bot.skill.rounded())
-                CL_AddBotCommand(bot.name, skill)
-                self.restorePausePanelIfNeeded()
-            })
+        botPicker.modalPresentationStyle = .overFullScreen
+        botPicker.onCancelled = { [weak self] in
+            self?.finishPauseMenuSubflow()
         }
-        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
-            self?.restorePausePanelIfNeeded()
-        })
-        presentPauseActionSheet(alert)
+        botPicker.onBotsConfirmed = { [weak self] bots in
+            guard let self = self else { return }
+            if self.isTeamGametype() {
+                self.presentTeamSelectionForAddBots(bots)
+            } else {
+                self.executeAddBotsViaConsole(bots, team: "free")
+                self.finishPauseMenuSubflow()
+            }
+        }
+
+        dismissPauseMenuUI { [weak self] in
+            guard let self = self else { return }
+
+            self.setGameControlsHidden(true)
+            self.present(botPicker, animated: false)
+        }
     }
 
-    @objc private func pauseRemoveBotTapped() {
+    @objc func pauseRemoveBotTapped() {
         let count = Int(CL_ConnectedBotCount())
         guard count > 0 else { return }
 
@@ -764,9 +1281,9 @@ extension SDL_uikitviewcontroller {
 
         let alert = UIAlertController(title: "Retirer un bot", message: nil, preferredStyle: .actionSheet)
         for name in names {
-            alert.addAction(UIAlertAction(title: name, style: .destructive) { _ in
+            alert.addAction(UIAlertAction(title: name, style: .destructive) { [weak self] _ in
                 CL_KickBotByName(name)
-                self.restorePausePanelIfNeeded()
+                self?.restorePausePanelIfNeeded()
             })
         }
         alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
@@ -781,7 +1298,6 @@ extension SDL_uikitviewcontroller {
         if Holder._controlsInstalled {
             layoutOnScreenControls(in: view.bounds)
         }
-        layoutPauseMenuPanel()
     }
 
     open override func viewSafeAreaInsetsDidChange() {

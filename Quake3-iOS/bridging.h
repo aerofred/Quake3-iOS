@@ -12,6 +12,7 @@
 #include "q_shared.h"
 #include "keycodes.h"
 //#import "AppDelegate.h"
+#import "AppDelegate.h"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Weverything"
 #include "SDL_uikitviewcontroller.h"

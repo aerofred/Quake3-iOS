@@ -1134,7 +1134,7 @@
         <!--Bot Match Bot View Controller-->
         <scene sceneID="bPg-26-jF1">
             <objects>
-                <viewController id="Whp-pa-8JV" customClass="BotMatchBotViewController" customModule="Quake3_iOS" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="BotMatchBotPicker" id="Whp-pa-8JV" customClass="BotMatchBotViewController" customModule="Quake3_iOS" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="C0Z-md-10D">
                         <rect key="frame" x="0.0" y="0.0" width="568" height="320"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
