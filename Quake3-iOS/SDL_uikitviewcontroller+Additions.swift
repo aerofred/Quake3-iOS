@@ -164,6 +164,13 @@ fileprivate final class PauseBotPickerViewController: UIViewController {
     private var quantity = 1
     private var skillButtons: [UIButton] = []
     private var botButtons: [UIButton] = []
+    private let skillNames = [
+        "I CAN WIN",
+        "BRING IT ON",
+        "HURT ME PLENTY",
+        "HARDCORE",
+        "NIGHTMARE!"
+    ]
 
     init(bots: [BotCatalog.Bot], bundleResourcePath: String, documentsDir: String) {
         self.bots = bots
@@ -268,33 +275,51 @@ fileprivate final class PauseBotPickerViewController: UIViewController {
     }
 
     private func makeBotButton(_ bot: BotCatalog.Bot) -> UIButton {
-        let button = UIButton(type: .system)
-        button.tintColor = .white
+        let button = UIButton(type: .custom)
         button.backgroundColor = UIColor.white.withAlphaComponent(0.10)
         button.layer.cornerRadius = 8
         button.layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
         button.layer.borderWidth = 1
         button.clipsToBounds = true
-        button.heightAnchor.constraint(equalToConstant: 92).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 104).isActive = true
 
-        button.setTitle(bot.name, for: .normal)
-        button.setTitleColor(.white, for: .normal)
-        button.setImage(
-            BotCatalog.loadIconImage(
+        let avatar = UIImageView()
+        avatar.translatesAutoresizingMaskIntoConstraints = false
+        avatar.contentMode = .scaleAspectFit
+        avatar.clipsToBounds = true
+        avatar.isUserInteractionEnabled = false
+        if let image = BotCatalog.loadIconImage(
                 for: bot,
                 bundleResourcePath: bundleResourcePath,
                 documentsDir: documentsDir
-            ),
-            for: .normal
-        )
-        button.imageView?.contentMode = .scaleAspectFit
-        button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 4, bottom: 4, right: 4)
-        button.imageEdgeInsets = UIEdgeInsets(top: 0, left: 18, bottom: 24, right: 18)
-        button.titleEdgeInsets = UIEdgeInsets(top: 58, left: -54, bottom: 0, right: 0)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
-        button.titleLabel?.numberOfLines = 1
-        button.titleLabel?.adjustsFontSizeToFitWidth = true
-        button.titleLabel?.minimumScaleFactor = 0.6
+        ) {
+            avatar.image = image.withRenderingMode(.alwaysOriginal)
+        }
+
+        let nameLabel = UILabel()
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        nameLabel.text = bot.name
+        nameLabel.textColor = .white
+        nameLabel.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
+        nameLabel.textAlignment = .center
+        nameLabel.adjustsFontSizeToFitWidth = true
+        nameLabel.minimumScaleFactor = 0.6
+        nameLabel.numberOfLines = 1
+        nameLabel.isUserInteractionEnabled = false
+
+        button.addSubview(avatar)
+        button.addSubview(nameLabel)
+        NSLayoutConstraint.activate([
+            avatar.topAnchor.constraint(equalTo: button.topAnchor, constant: 6),
+            avatar.centerXAnchor.constraint(equalTo: button.centerXAnchor),
+            avatar.widthAnchor.constraint(equalToConstant: 60),
+            avatar.heightAnchor.constraint(equalToConstant: 60),
+
+            nameLabel.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 4),
+            nameLabel.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -4),
+            nameLabel.topAnchor.constraint(equalTo: avatar.bottomAnchor, constant: 6),
+            nameLabel.bottomAnchor.constraint(lessThanOrEqualTo: button.bottomAnchor, constant: -4)
+        ])
         return button
     }
 
@@ -309,7 +334,8 @@ fileprivate final class PauseBotPickerViewController: UIViewController {
         skillRow.spacing = 6
         skillRow.distribution = .fillEqually
         for value in 1...5 {
-            let button = makeControlButton(title: "\(value)")
+            let button = makeControlButton(title: skillNames[value - 1])
+            button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
             let target = PauseMenuButtonTarget { [weak self] in
                 self?.skill = Float(value)
                 self?.updateSkillUI()
