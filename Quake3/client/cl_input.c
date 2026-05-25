@@ -566,13 +566,169 @@ void CL_AddBotCommand( const char *name, int skill ) {
 	char cmd[MAX_STRING_CHARS];
 
 	if ( !name || !name[0] ) {
+		Com_Printf( "[Q3Bot] CL_AddBotCommand skipped empty name\n" );
 		return;
 	}
 
-	Com_sprintf( cmd, sizeof( cmd ), "addbot %s %i\n", name, skill );
+	Com_Printf( "[Q3Bot] CL_AddBotCommand name=%s skill=%i sv_running=%i bot_enable=%i gametype=%i\n",
+		name,
+		skill,
+		Cvar_VariableIntegerValue( "sv_running" ),
+		Cvar_VariableIntegerValue( "bot_enable" ),
+		Cvar_VariableIntegerValue( "g_gametype" ) );
+	Com_sprintf( cmd, sizeof( cmd ), "addbot %s %i free\n", name, skill );
 	Cbuf_AddText( cmd );
 	Cbuf_Execute();
 }
+
+#ifdef IOS
+#define CL_NATIVE_BOT_QUEUE_SIZE 16
+typedef struct {
+	qboolean used;
+	char name[MAX_NAME_LENGTH];
+	int skill;
+} clNativeBotCommand_t;
+
+static clNativeBotCommand_t cl_nativeBotQueue[CL_NATIVE_BOT_QUEUE_SIZE];
+static int cl_nativeBotQueueNextFlushTime = 0;
+
+void CL_QueueAddBotCommand( const char *name, int skill ) {
+	int i;
+
+	if ( !name || !name[0] ) {
+		Com_Printf( "[Q3Bot] CL_QueueAddBotCommand skipped empty name\n" );
+		return;
+	}
+
+	for ( i = 0; i < CL_NATIVE_BOT_QUEUE_SIZE; i++ ) {
+		if ( cl_nativeBotQueue[i].used ) {
+			continue;
+		}
+
+		cl_nativeBotQueue[i].used = qtrue;
+		Q_strncpyz( cl_nativeBotQueue[i].name, name, sizeof( cl_nativeBotQueue[i].name ) );
+		cl_nativeBotQueue[i].skill = skill;
+		Com_Printf( "[Q3Bot] CL_QueueAddBotCommand queued name=%s skill=%i slot=%i\n", name, skill, i );
+		return;
+	}
+
+	Com_Printf( "[Q3Bot] CL_QueueAddBotCommand queue full name=%s skill=%i\n", name, skill );
+}
+
+void CL_FlushQueuedAddBotCommands( void ) {
+	int i;
+	int now;
+
+	if ( !Cvar_VariableIntegerValue( "sv_running" ) ||
+		 !Cvar_VariableIntegerValue( "bot_enable" ) ||
+		 clc.state != CA_ACTIVE ) {
+		return;
+	}
+
+	now = Sys_Milliseconds();
+	if ( cl_nativeBotQueueNextFlushTime > now ) {
+		return;
+	}
+
+	for ( i = 0; i < CL_NATIVE_BOT_QUEUE_SIZE; i++ ) {
+		if ( !cl_nativeBotQueue[i].used ) {
+			continue;
+		}
+
+		Com_Printf( "[Q3Bot] CL_FlushQueuedAddBotCommands executing name=%s skill=%i gametype=%i maxclients=%i\n",
+			cl_nativeBotQueue[i].name,
+			cl_nativeBotQueue[i].skill,
+			Cvar_VariableIntegerValue( "g_gametype" ),
+			Cvar_VariableIntegerValue( "sv_maxclients" ) );
+		CL_AddBotCommand( cl_nativeBotQueue[i].name, cl_nativeBotQueue[i].skill );
+		cl_nativeBotQueue[i].used = qfalse;
+		cl_nativeBotQueueNextFlushTime = now + 600;
+		return;
+	}
+}
+
+int CL_QueuedAddBotCommandCount( void ) {
+	int i;
+	int count;
+
+	count = 0;
+	for ( i = 0; i < CL_NATIVE_BOT_QUEUE_SIZE; i++ ) {
+		if ( cl_nativeBotQueue[i].used ) {
+			count++;
+		}
+	}
+
+	return count;
+}
+
+void CL_GetQueuedAddBotCommandStatus( char *out, int outSize ) {
+	int i;
+	int count;
+	int connectedCount;
+	char bots[MAX_STRING_CHARS];
+	char players[MAX_STRING_CHARS];
+	char entry[128];
+	const char *info;
+	const char *playerName;
+
+	if ( !out || outSize < 1 ) {
+		return;
+	}
+
+	count = 0;
+	connectedCount = 0;
+	bots[0] = '\0';
+	players[0] = '\0';
+	for ( i = 0; i < CL_NATIVE_BOT_QUEUE_SIZE; i++ ) {
+		if ( !cl_nativeBotQueue[i].used ) {
+			continue;
+		}
+
+		count++;
+		Com_sprintf( entry, sizeof( entry ), "%s%s:%i",
+			bots[0] ? "," : "",
+			cl_nativeBotQueue[i].name,
+			cl_nativeBotQueue[i].skill );
+		Q_strcat( bots, sizeof( bots ), entry );
+	}
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		if ( i == clc.clientNum ) {
+			continue;
+		}
+		if ( !cl.gameState.stringOffsets[CS_PLAYERS + i] ) {
+			continue;
+		}
+
+		info = cl.gameState.stringData + cl.gameState.stringOffsets[CS_PLAYERS + i];
+		playerName = Info_ValueForKey( info, "n" );
+		if ( !playerName || !playerName[0] ) {
+			continue;
+		}
+
+		connectedCount++;
+		Com_sprintf( entry, sizeof( entry ), "%s%s",
+			players[0] ? "," : "",
+			playerName );
+		Q_strcat( players, sizeof( players ), entry );
+	}
+	Q_CleanStr( players );
+
+	Com_sprintf( out, outSize,
+		"count=%i bots=[%s] connected=%i players=[%s] sv_running=%i bot_enable=%i state=%i gametype=%i maxclients=%i now=%i nextFlush=%i",
+		count,
+		bots,
+		connectedCount,
+		players,
+		Cvar_VariableIntegerValue( "sv_running" ),
+		Cvar_VariableIntegerValue( "bot_enable" ),
+		clc.state,
+		Cvar_VariableIntegerValue( "g_gametype" ),
+		Cvar_VariableIntegerValue( "sv_maxclients" ),
+		Sys_Milliseconds(),
+		cl_nativeBotQueueNextFlushTime );
+}
+#endif
 
 int CL_ConnectedBotCount( void ) {
 	int i;

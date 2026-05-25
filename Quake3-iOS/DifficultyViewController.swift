@@ -12,6 +12,7 @@ class DifficultyViewController: UIViewController {
     
     var selectedMap = ""
     var selectedMapName = ""
+    var selectedBotNames: [String] = []
     var selectedDifficulty = 0
     
     @IBAction func difficulty1(_ sender: UIButton) {
@@ -43,11 +44,12 @@ class DifficultyViewController: UIViewController {
         selectedDifficulty = difficulty
         if Sys_IsIOSMainLoopPaused().rawValue != 0,
            let gameVC = storyboard?.instantiateViewController(withIdentifier: "GameViewController") as? GameViewController {
-            NSLog("[Q3Quit] DifficultyViewController push GameViewController without animation selectedMap=%@ difficulty=%d", selectedMap, selectedDifficulty)
-            GameSession.configureForSinglePlayer(map: selectedMap, difficulty: selectedDifficulty)
+            NSLog("[Q3Quit] DifficultyViewController push GameViewController without animation selectedMap=%@ difficulty=%d bots=%@", selectedMap, selectedDifficulty, selectedBotNames.joined(separator: ","))
+            GameSession.configureForSinglePlayer(map: selectedMap, difficulty: selectedDifficulty, bots: selectedBotNames)
             gameVC.selectedMap = selectedMap
             gameVC.selectedDifficulty = selectedDifficulty
             gameVC.botMatch = false
+            gameVC.bots = selectedBotNames.map { (name: $0, skill: Float(selectedDifficulty), icon: "") }
             navigationController?.pushViewController(gameVC, animated: false)
             navigationController?.view.setNeedsLayout()
             navigationController?.view.layoutIfNeeded()
@@ -67,10 +69,11 @@ class DifficultyViewController: UIViewController {
               let gameVC = segue.destination as? GameViewController else {
             return
         }
-        GameSession.configureForSinglePlayer(map: selectedMap, difficulty: selectedDifficulty)
+        GameSession.configureForSinglePlayer(map: selectedMap, difficulty: selectedDifficulty, bots: selectedBotNames)
         gameVC.selectedMap = selectedMap
         gameVC.selectedDifficulty = selectedDifficulty
         gameVC.botMatch = false
+        gameVC.bots = selectedBotNames.map { (name: $0, skill: Float(selectedDifficulty), icon: "") }
     }
 
     override func viewDidLoad() {

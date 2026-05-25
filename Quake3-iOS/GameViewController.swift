@@ -171,6 +171,11 @@ class GameViewController: UIViewController {
             return
         }
         GameViewController.engineRunning = true
+        NSLog("[Q3Quit] GameViewController engine launch map=%@ difficulty=%d botMatch=%d bots=%@",
+              mapName,
+              selectedDifficulty,
+              botMatch,
+              botLogDescription())
 
         var argv: [String?] = [
             resourcePath + "/quake3",
@@ -195,6 +200,7 @@ class GameViewController: UIViewController {
         let argc = Int32(argv.count - 1)
         var cargs = argv.map { $0.flatMap { UnsafeMutablePointer<Int8>(strdup($0)) } }
 
+        scheduleInitialBotCommandsIfNeeded(mapName: mapName)
         Sys_Startup(argc, &cargs)
         for ptr in cargs {
             free(UnsafeMutablePointer(mutating: ptr))
@@ -212,19 +218,28 @@ class GameViewController: UIViewController {
 
         if botMatch {
             Cbuf_AddText("set sv_pure 0\n")
+            Cbuf_AddText("set bot_enable 1\n")
+            Cbuf_AddText("set sv_maxclients \(maxClientCount())\n")
+            Cbuf_AddText("set ui_singlePlayerActive 0\n")
+            Cbuf_AddText("set singleplayer 0\n")
+            Cbuf_AddText("set g_gametype 0\n")
             Cbuf_AddText("map \(mapName)\n")
             Cbuf_AddText("wait 2\n")
-            for bot in bots {
-                let skill = max(1, min(5, bot.skill))
-                Cbuf_AddText("addbot \(bot.name) \(skill)\n")
-            }
+            queueAddBotCommands()
             Cbuf_AddText("set timelimit \(timeLimit)\n")
             Cbuf_AddText("set fraglimit \(fragLimit)\n")
         } else if selectedServer == nil {
-            let skill = max(1, selectedDifficulty)
+            let skill = clampedSinglePlayerSkill()
             Cbuf_AddText("set sv_pure 0\n")
+            Cbuf_AddText("set bot_enable 1\n")
+            Cbuf_AddText("set sv_maxclients \(maxClientCount())\n")
+            Cbuf_AddText("set ui_singlePlayerActive 0\n")
+            Cbuf_AddText("set singleplayer 0\n")
+            Cbuf_AddText("set g_gametype \(singlePlayerGameType(for: mapName))\n")
             Cbuf_AddText("set g_spSkill \(skill)\n")
             Cbuf_AddText("map \(mapName)\n")
+            Cbuf_AddText("wait 2\n")
+            queueAddBotCommands(overrideSkill: skill)
         } else if let selectedServer {
             Cbuf_AddText("connect \(selectedServer.ip):\(selectedServer.port)\n")
         }
@@ -235,25 +250,98 @@ class GameViewController: UIViewController {
         guard !mapName.isEmpty else { return }
 
         if botMatch {
-            argv.append(contentsOf: ["+map", mapName, "+set", "sv_pure", "0"])
-            for bot in bots where !bot.name.isEmpty {
-                let skill = max(1, min(5, bot.skill))
-                argv.append(contentsOf: ["+addbot", bot.name, String(skill)])
-            }
+            argv.append(contentsOf: [
+                "+set", "sv_pure", "0",
+                "+set", "bot_enable", "1",
+                "+set", "sv_maxclients", String(maxClientCount()),
+                "+set", "ui_singlePlayerActive", "0",
+                "+set", "singleplayer", "0",
+                "+set", "g_gametype", "0",
+                "+map", mapName
+            ])
             argv.append(contentsOf: [
                 "+set", "timelimit", String(timeLimit),
                 "+set", "fraglimit", String(fragLimit)
             ])
         } else if selectedServer == nil {
             // Même chemin que Bot Match (+map) : +spmap laissait le client sur le menu Quake.
-            let skill = max(1, selectedDifficulty)
+            let skill = clampedSinglePlayerSkill()
             argv.append(contentsOf: [
+                "+set", "sv_maxclients", String(maxClientCount()),
+                "+set", "bot_enable", "1",
+                "+set", "ui_singlePlayerActive", "0",
+                "+set", "singleplayer", "0",
+                "+set", "g_gametype", String(singlePlayerGameType(for: mapName)),
                 "+set", "g_spSkill", String(skill),
                 "+map", mapName,
                 "+set", "sv_pure", "0",
                 "+set", "r_uiFullScreen", "0"
             ])
         }
+    }
+
+    private func queueAddBotCommands(overrideSkill: Int? = nil) {
+        let commands = addBotCommands(overrideSkill: overrideSkill)
+        guard !commands.isEmpty else { return }
+
+        NSLog("[Q3Quit] queueAddBotCommands bots=%@", commands.map { "\($0.name):\($0.skill)" }.joined(separator: ","))
+        for command in commands {
+            Cbuf_AddText("wait\n")
+            Cbuf_AddText("addbot \(command.name) \(command.skill) free 250\n")
+        }
+    }
+
+    private func scheduleInitialBotCommandsIfNeeded(mapName: String) {
+        guard selectedServer == nil, !mapName.isEmpty else { return }
+        let overrideSkill = botMatch ? nil : clampedSinglePlayerSkill()
+        let commands = addBotCommands(overrideSkill: overrideSkill)
+        guard !commands.isEmpty else { return }
+
+        NSLog("[Q3Quit] scheduleInitialBotCommands bots=%@", commands.map { "\($0.name):\($0.skill)" }.joined(separator: ","))
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 8.0) {
+            NSLog("[Q3Quit] scheduleInitialBotCommands firing bots=%@", commands.map { "\($0.name):\($0.skill)" }.joined(separator: ","))
+            for command in commands {
+                CL_QueueAddBotCommand(command.name, Int32(command.skill))
+            }
+            self.logQueuedBotStatus("after enqueue")
+            [1.0, 2.0, 4.0, 6.0].forEach { delay in
+                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) {
+                    self.logQueuedBotStatus(String(format: "after %.0fs", delay))
+                }
+            }
+        }
+    }
+
+    private func logQueuedBotStatus(_ label: String) {
+        var status = [CChar](repeating: 0, count: 512)
+        CL_GetQueuedAddBotCommandStatus(&status, Int32(status.count))
+        NSLog("[Q3Quit] nativeBotQueue %@ %@", label, String(cString: status))
+    }
+
+    private func addBotCommands(overrideSkill: Int? = nil) -> [(name: String, skill: Int)] {
+        bots.compactMap { bot in
+            let name = bot.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return nil }
+            let skill = overrideSkill ?? Int(bot.skill.rounded())
+            return (name: name, skill: max(1, min(5, skill)))
+        }
+    }
+
+    private func clampedSinglePlayerSkill() -> Int {
+        max(1, min(5, selectedDifficulty))
+    }
+
+    private func maxClientCount() -> Int {
+        max(8, min(12, addBotCommands().count + 1))
+    }
+
+    private func singlePlayerGameType(for mapName: String) -> Int {
+        mapName.lowercased().contains("tourney") ? 1 : 0
+    }
+
+    private func botLogDescription() -> String {
+        let commands = addBotCommands(overrideSkill: botMatch ? nil : clampedSinglePlayerSkill())
+        return commands.map { "\($0.name):\($0.skill)" }.joined(separator: ",")
     }
 
     private func appendControlAndVideoSettings(to argv: inout [String?], resourcePath: String) {

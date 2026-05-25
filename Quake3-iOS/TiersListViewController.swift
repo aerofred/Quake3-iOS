@@ -48,6 +48,7 @@ class TiersListViewController: UIViewController {
                                                 [(map: "q3tourney6", name: "Q3TOURNEY6: The Very End of You (Xaero)")]]
 
     var selectedMap = ""
+    var selectedBotNames: [String] = []
 
     private var displayTiers: [String] = []
     private var displayMaps: [[(map: String, name: String)]] = []
@@ -109,6 +110,34 @@ class TiersListViewController: UIViewController {
             return
         }
         difficultyVC.selectedMap = selectedMap
+        difficultyVC.selectedBotNames = selectedBotNames
+    }
+
+    private func opponentNames(from mapTitle: String) -> [String] {
+        guard let open = mapTitle.lastIndex(of: "("),
+              let close = mapTitle[open...].firstIndex(of: ")") else {
+            return []
+        }
+
+        return mapTitle[mapTitle.index(after: open)..<close]
+            .split(separator: ",")
+            .map { canonicalBotName(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func canonicalBotName(_ displayName: String) -> String {
+        guard let resourcePath = Bundle.main.resourcePath else {
+            return displayName
+        }
+
+        let normalizedDisplay = normalizedBotName(displayName)
+        return BotCatalog.availableBots(bundleResourcePath: resourcePath)
+            .first { normalizedBotName($0.name) == normalizedDisplay }?
+            .name ?? displayName.replacingOccurrences(of: " ", with: "")
+    }
+
+    private func normalizedBotName(_ name: String) -> String {
+        name.lowercased().filter { $0.isLetter || $0.isNumber }
     }
 }
 
@@ -116,11 +145,14 @@ extension TiersListViewController : UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         NSLog("[Q3Quit] TiersListViewController didSelect section=%d row=%d", indexPath.section, indexPath.row)
-        selectedMap = displayMaps[indexPath.section][indexPath.row].map
+        let selectedEntry = displayMaps[indexPath.section][indexPath.row]
+        selectedMap = selectedEntry.map
+        selectedBotNames = opponentNames(from: selectedEntry.name)
         if Sys_IsIOSMainLoopPaused().rawValue != 0,
            let difficultyVC = storyboard?.instantiateViewController(withIdentifier: "DifficultyViewController") as? DifficultyViewController {
-            NSLog("[Q3Quit] TiersListViewController push DifficultyViewController without animation selectedMap=%@", selectedMap)
+            NSLog("[Q3Quit] TiersListViewController push DifficultyViewController without animation selectedMap=%@ bots=%@", selectedMap, selectedBotNames.joined(separator: ","))
             difficultyVC.selectedMap = selectedMap
+            difficultyVC.selectedBotNames = selectedBotNames
             navigationController?.pushViewController(difficultyVC, animated: false)
             return
         }

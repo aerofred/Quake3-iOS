@@ -2934,6 +2934,10 @@ void CL_Frame ( int msec ) {
 		return;
 	}
 
+#ifdef IOS
+	CL_FlushQueuedAddBotCommands();
+#endif
+
 #ifdef USE_CURL
 	if(clc.downloadCURLM) {
 		CL_cURL_PerformDownload();

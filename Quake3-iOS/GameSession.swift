@@ -16,12 +16,12 @@ enum GameSession {
     static var timeLimit = 0
     static var server: Server?
 
-    static func configureForSinglePlayer(map: String, difficulty: Int) {
+    static func configureForSinglePlayer(map: String, difficulty: Int, bots: [String] = []) {
         botMatch = false
         server = nil
-        bots = []
         self.map = map
         self.difficulty = max(1, min(5, difficulty))
+        self.bots = bots.map { (name: $0, skill: Float(self.difficulty), icon: "") }
     }
 
     static func configureForBotMatch(

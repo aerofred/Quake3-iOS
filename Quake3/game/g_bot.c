@@ -28,6 +28,51 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 static int		g_numBots;
 static char		*g_botInfos[MAX_BOTS];
 
+typedef struct {
+	const char *displayName;
+	const char *lookupName;
+	const char *model;
+	const char *aifileBase;
+} generatedBotInfo_t;
+
+static const generatedBotInfo_t g_generatedBotInfos[] = {
+	{ "Anarki", "anarki", "anarki", "anarki" },
+	{ "Angel", "angel", "lucy/angel", "angel" },
+	{ "Biker", "biker", "biker", "biker" },
+	{ "Bitterman", "bitterman", "bitterman", "bitterman" },
+	{ "Bones", "bones", "bones", "bones" },
+	{ "Cadaver", "cadaver", "biker/cadavre", "cadaver" },
+	{ "Crash", "crash", "crash", "crash" },
+	{ "Daemia", "daemia", "major/daemia", "daemia" },
+	{ "Doom", "doom", "doom", "doom" },
+	{ "Gorre", "gorre", "visor/gorre", "gorre" },
+	{ "Grunt", "grunt", "grunt", "grunt" },
+	{ "Hossman", "hossman", "biker/hossman", "hossman" },
+	{ "Hunter", "hunter", "hunter", "hunter" },
+	{ "Keel", "keel", "keel", "keel" },
+	{ "Klesk", "klesk", "klesk", "klesk" },
+	{ "Lucy", "lucy", "lucy", "lucy" },
+	{ "Major", "major", "major", "major" },
+	{ "Mynx", "mynx", "mynx", "mynx" },
+	{ "Orbb", "orbb", "orbb", "orbb" },
+	{ "Patriot", "patriot", "razor/patriot", "patriot" },
+	{ "Phobos", "phobos", "doom/phobos", "phobos" },
+	{ "Ranger", "ranger", "ranger", "ranger" },
+	{ "Razor", "razor", "razor", "razor" },
+	{ "Sarge", "sarge", "sarge", "sarge" },
+	{ "Slash", "slash", "slash", "slash" },
+	{ "Sorlag", "sorlag", "sorlag", "sorlag" },
+	{ "Stripe", "stripe", "grunt/stripe", "stripe" },
+	{ "TankJr", "tankjr", "tankjr", "tankjr" },
+	{ "Tank Jr.", "tankjr", "tankjr", "tankjr" },
+	{ "Uriel", "uriel", "uriel", "uriel" },
+	{ "Visor", "visor", "visor", "visor" },
+	{ "Wrack", "wrack", "ranger/wrack", "wrack" },
+	{ "Xaero", "xaero", "xaero", "xaero" }
+};
+
+static char g_generatedBotInfo[MAX_INFO_STRING];
+
 
 int				g_numArenas;
 static char		*g_arenaInfos[MAX_ARENAS];
@@ -595,10 +640,13 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 	// have the server allocate a client slot
 	clientNum = trap_BotAllocateClient();
 	if ( clientNum == -1 ) {
+		G_Printf( "[Q3Bot] G_AddBot no slot name=%s skill=%.2f team=%s delay=%d maxclients=%d\n", name, skill, team ? team : "", delay, g_maxclients.integer );
 		G_Printf( S_COLOR_RED "Unable to add bot. All player slots are in use.\n" );
 		G_Printf( S_COLOR_RED "Start server with more 'open' slots (or check setting of sv_maxclients cvar).\n" );
 		return;
 	}
+	G_Printf( "[Q3Bot] G_AddBot allocated slot=%d name=%s skill=%.2f teamArg=%s delay=%d gametype=%d maxclients=%d\n",
+		clientNum, name, skill, team ? team : "", delay, g_gametype.integer, g_maxclients.integer );
 
 	// set default team
 	if( !team || !*team ) {
@@ -645,10 +693,12 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 	}
 
 	if ( !botinfo ) {
+		G_Printf( "[Q3Bot] G_AddBot missing botinfo name=%s slot=%d\n", name, clientNum );
 		G_Printf( S_COLOR_RED "Error: Bot '%s' not defined\n", name );
 		trap_BotFreeClient( clientNum );
 		return;
 	}
+	G_Printf( "[Q3Bot] G_AddBot botinfo found requested=%s botName=%s\n", name, Info_ValueForKey( botinfo, "name" ) );
 
 	// create the bot's userinfo
 	userinfo[0] = '\0';
@@ -718,6 +768,7 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 
 	s = Info_ValueForKey(botinfo, "aifile");
 	if (!*s ) {
+		G_Printf( "[Q3Bot] G_AddBot missing aifile name=%s slot=%d\n", name, clientNum );
 		trap_Print( S_COLOR_RED "Error: bot has no aifile specified\n" );
 		trap_BotFreeClient( clientNum );
 		return;
@@ -732,14 +783,17 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 
 	// have it connect to the game as a normal client
 	if ( ClientConnect( clientNum, qtrue, qtrue ) ) {
+		G_Printf( "[Q3Bot] G_AddBot ClientConnect rejected name=%s slot=%d\n", name, clientNum );
 		return;
 	}
 
 	if( delay == 0 ) {
+		G_Printf( "[Q3Bot] G_AddBot ClientBegin now name=%s slot=%d\n", name, clientNum );
 		ClientBegin( clientNum );
 		return;
 	}
 
+	G_Printf( "[Q3Bot] G_AddBot queue spawn name=%s slot=%d delay=%d\n", name, clientNum, delay );
 	AddBotToSpawnQueue( clientNum, delay );
 }
 
@@ -759,6 +813,7 @@ void Svcmd_AddBot_f( void ) {
 
 	// are bots enabled?
 	if ( !trap_Cvar_VariableIntegerValue( "bot_enable" ) ) {
+		G_Printf( "[Q3Bot] Svcmd_AddBot ignored bot_enable=0\n" );
 		return;
 	}
 
@@ -793,6 +848,8 @@ void Svcmd_AddBot_f( void ) {
 	// alternative name
 	trap_Argv( 5, altname, sizeof( altname ) );
 
+	G_Printf( "[Q3Bot] Svcmd_AddBot name=%s skill=%.2f team=%s delay=%d altname=%s gametype=%d maxclients=%d\n",
+		name, skill, team, delay, altname, g_gametype.integer, g_maxclients.integer );
 	G_AddBot( name, skill, team, delay, altname );
 
 	// if this was issued during gameplay and we are playing locally,
@@ -979,6 +1036,65 @@ char *G_GetBotInfoByNumber( int num ) {
 	return g_botInfos[num];
 }
 
+static void G_NormalizeBotLookupName( const char *in, char *out, int outSize ) {
+	int i;
+	int o;
+	char c;
+
+	if ( !out || outSize < 1 ) {
+		return;
+	}
+
+	o = 0;
+	for ( i = 0; in && in[i] && o < outSize - 1; i++ ) {
+		c = in[i];
+		if ( c >= 'A' && c <= 'Z' ) {
+			c += 'a' - 'A';
+		}
+		if ( ( c >= 'a' && c <= 'z' ) || ( c >= '0' && c <= '9' ) ) {
+			out[o++] = c;
+		}
+	}
+	out[o] = '\0';
+}
+
+static char *G_GenerateBotInfoByName( const char *name ) {
+	int i;
+	fileHandle_t f;
+	char lookup[MAX_TOKEN_CHARS];
+	const generatedBotInfo_t *bot;
+
+	G_NormalizeBotLookupName( name, lookup, sizeof( lookup ) );
+	if ( !lookup[0] ) {
+		return NULL;
+	}
+
+	for ( i = 0; i < ARRAY_LEN( g_generatedBotInfos ); i++ ) {
+		bot = &g_generatedBotInfos[i];
+		if ( Q_stricmp( lookup, bot->lookupName ) ) {
+			continue;
+		}
+
+		if ( trap_FS_FOpenFile( va( "botfiles/bots/%s_c.c", bot->aifileBase ), &f, FS_READ ) <= 0 ) {
+			if ( f ) {
+				trap_FS_FCloseFile( f );
+			}
+			return NULL;
+		}
+		trap_FS_FCloseFile( f );
+
+		g_generatedBotInfo[0] = '\0';
+		Info_SetValueForKey( g_generatedBotInfo, "name", bot->displayName );
+		Info_SetValueForKey( g_generatedBotInfo, "model", bot->model );
+		Info_SetValueForKey( g_generatedBotInfo, "aifile", va( "bots/%s_c.c", bot->aifileBase ) );
+		G_Printf( "[Q3Bot] generated botinfo name=%s model=%s aifile=bots/%s_c.c\n",
+			bot->displayName, bot->model, bot->aifileBase );
+		return g_generatedBotInfo;
+	}
+
+	return NULL;
+}
+
 
 /*
 ===============
@@ -996,7 +1112,7 @@ char *G_GetBotInfoByName( const char *name ) {
 		}
 	}
 
-	return NULL;
+	return G_GenerateBotInfoByName( name );
 }
 
 /*

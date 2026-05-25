@@ -1363,7 +1363,13 @@ extension SDL_uikitviewcontroller {
         quitLog("\(label) windows=\(description)")
     }
 
-    private func replaceRootNavigationStack(showArenaSelection: Bool, app: AppDelegate) {
+    private enum QuitReturnTarget {
+        case mainMenu
+        case arenaSelection
+        case botMatch
+    }
+
+    private func replaceRootNavigationStack(target: QuitReturnTarget, app: AppDelegate) {
         Sys_SetIOSMainLoopPaused(qboolean(1))
         quitLog("replaceRootNavigationStack requested iOS main loop pause")
         quitLogApplicationWindows("replaceRootNavigationStack before")
@@ -1374,16 +1380,31 @@ extension SDL_uikitviewcontroller {
             return
         }
 
-        if showArenaSelection {
+        switch target {
+        case .mainMenu:
+            break
+        case .arenaSelection:
             guard let mainMenuVC = storyboard.instantiateViewController(withIdentifier: "MainMenuViewController") as? MainMenuViewController,
                   let tiersVC = storyboard.instantiateViewController(withIdentifier: "TiersListViewController") as? TiersListViewController else {
                 quitLog("replaceRootNavigationStack failed: arena controllers missing")
                 return
             }
             navigationController.setViewControllers([mainMenuVC, tiersVC], animated: false)
+        case .botMatch:
+            guard let mainMenuVC = storyboard.instantiateViewController(withIdentifier: "MainMenuViewController") as? MainMenuViewController,
+                  let botMatchVC = storyboard.instantiateViewController(withIdentifier: "BotMatchViewController") as? BotMatchViewController else {
+                quitLog("replaceRootNavigationStack failed: bot match controllers missing")
+                return
+            }
+            botMatchVC.selectedMap = GameSession.map.isEmpty ? botMatchVC.selectedMap : GameSession.map
+            botMatchVC.botSkill = GameSession.botSkill
+            botMatchVC.bots = GameSession.bots
+            botMatchVC.fragLimit = GameSession.fragLimit
+            botMatchVC.timeLimit = GameSession.timeLimit
+            navigationController.setViewControllers([mainMenuVC, botMatchVC], animated: false)
         }
 
-        quitLog("replaceRootNavigationStack showArenaSelection=\(showArenaSelection) newNav=\(quitNavigationDescription(navigationController))")
+        quitLog("replaceRootNavigationStack target=\(target) newNav=\(quitNavigationDescription(navigationController))")
         navigationController.view.isUserInteractionEnabled = true
         app.rootNavigationController = navigationController
         app.uiwindow.rootViewController = navigationController
@@ -1414,7 +1435,8 @@ extension SDL_uikitviewcontroller {
 
         let navigate = {
             self.quitLog("returnToArenaSelection navigate start nav=\(self.quitNavigationDescription(navigationController))")
-            self.replaceRootNavigationStack(showArenaSelection: true, app: app)
+            let target: QuitReturnTarget = GameSession.botMatch ? .botMatch : .arenaSelection
+            self.replaceRootNavigationStack(target: target, app: app)
             self.quitLog("returnToArenaSelection end appWindow=\(self.quitWindowDescription(app.uiwindow)) selfWindow=\(self.quitWindowDescription(self.view.window))")
         }
 
@@ -1441,7 +1463,7 @@ extension SDL_uikitviewcontroller {
 
         let navigate = {
             self.quitLog("returnToMainMenu navigate start nav=\(self.quitNavigationDescription(navigationController))")
-            self.replaceRootNavigationStack(showArenaSelection: false, app: app)
+            self.replaceRootNavigationStack(target: .mainMenu, app: app)
             self.quitLog("returnToMainMenu end appWindow=\(self.quitWindowDescription(app.uiwindow)) selfWindow=\(self.quitWindowDescription(self.view.window))")
         }
 
