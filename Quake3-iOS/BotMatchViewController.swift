@@ -87,6 +87,45 @@ class BotMatchViewController: UIViewController {
 
     // MARK: - Navigation
 
+    override func shouldPerformSegue(withIdentifier identifier: String?, sender: Any?) -> Bool {
+        guard Sys_IsIOSMainLoopPaused().rawValue != 0,
+              let button = sender as? UIButton else {
+            return true
+        }
+
+        if button.currentTitle == "< BACK" {
+            NSLog("[Q3Quit] BotMatchViewController back without unwind animation from paused main menu")
+            navigationController?.popViewController(animated: false)
+            return false
+        }
+
+        if identifier == "BotMatchSegue",
+           let gameVC = storyboard?.instantiateViewController(withIdentifier: "GameViewController") as? GameViewController {
+            let map = selectedMap.lowercased()
+            GameSession.configureForBotMatch(
+                map: map,
+                skill: botSkill,
+                bots: bots,
+                fragLimit: fragLimit,
+                timeLimit: timeLimit
+            )
+            gameVC.selectedMap = map
+            gameVC.botMatch = true
+            gameVC.botSkill = botSkill
+            gameVC.bots = bots
+            gameVC.fragLimit = fragLimit
+            gameVC.timeLimit = timeLimit
+            NSLog("[Q3Quit] BotMatchViewController push GameViewController without animation map=%@ bots=%d", map, bots.count)
+            navigationController?.pushViewController(gameVC, animated: false)
+            navigationController?.view.setNeedsLayout()
+            navigationController?.view.layoutIfNeeded()
+            gameVC.activateAfterPausedMenuNavigation()
+            return false
+        }
+
+        return true
+    }
+
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if segue.identifier == "BotMatchSegue" {
             let map = selectedMap.lowercased()
@@ -226,4 +265,3 @@ extension BotMatchViewController : UITableViewDataSource {
         return 1
     }
 }
-

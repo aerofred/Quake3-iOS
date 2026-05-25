@@ -171,6 +171,36 @@ class MainMenuViewController: UIViewController {
         super.touchesBegan(touches, with: event)
         NSLog("[Q3Quit] MainMenuViewController touchesBegan count=%d", touches.count)
     }
+
+    override func shouldPerformSegue(withIdentifier identifier: String?, sender: Any?) -> Bool {
+        guard Sys_IsIOSMainLoopPaused().rawValue != 0,
+              let button = sender as? UIButton else {
+            return true
+        }
+
+        if button.currentTitle == "SINGLE PLAYER",
+           let tiersVC = storyboard?.instantiateViewController(withIdentifier: "TiersListViewController") as? TiersListViewController {
+            NSLog("[Q3Quit] MainMenuViewController push TiersListViewController without animation from paused main menu")
+            navigationController?.pushViewController(tiersVC, animated: false)
+            return false
+        }
+
+        if button.currentTitle == "OPTIONS",
+           let optionsVC = storyboard?.instantiateViewController(withIdentifier: "OptionsViewController") as? OptionsViewController {
+            NSLog("[Q3Quit] MainMenuViewController push OptionsViewController without animation from paused main menu")
+            navigationController?.pushViewController(optionsVC, animated: false)
+            return false
+        }
+
+        if button.currentTitle == "BOT MATCH",
+           let botMatchVC = storyboard?.instantiateViewController(withIdentifier: "BotMatchViewController") as? BotMatchViewController {
+            NSLog("[Q3Quit] MainMenuViewController push BotMatchViewController without animation from paused main menu")
+            navigationController?.pushViewController(botMatchVC, animated: false)
+            return false
+        }
+
+        return true
+    }
     
     func extractFile(pk3: String, source: String, destination: String) {
         let fileManager = FileManager()
