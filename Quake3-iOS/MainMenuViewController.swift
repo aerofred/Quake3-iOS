@@ -159,6 +159,18 @@ class MainMenuViewController: UIViewController {
 
         // Do any additional setup after loading the view.
     }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        NSLog("[Q3Quit] MainMenuViewController viewDidAppear window=%@ viewInteractive=%d",
+              String(describing: view.window),
+              view.isUserInteractionEnabled)
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesBegan(touches, with: event)
+        NSLog("[Q3Quit] MainMenuViewController touchesBegan count=%d", touches.count)
+    }
     
     func extractFile(pk3: String, source: String, destination: String) {
         let fileManager = FileManager()

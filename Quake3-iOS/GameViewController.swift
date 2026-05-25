@@ -38,6 +38,12 @@ class GameViewController: UIViewController {
             name: .quakeReturnToMainMenu,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleReturnToArenaSelection),
+            name: .quakeReturnToArenaSelection,
+            object: nil
+        )
     }
 
     deinit {
@@ -48,8 +54,44 @@ class GameViewController: UIViewController {
         navigationController?.popViewController(animated: true)
     }
 
+    @objc private func handleReturnToArenaSelection() {
+        guard let navigationController = navigationController else { return }
+
+        if let tiersVC = navigationController.viewControllers.last(where: { $0 is TiersListViewController }) {
+            navigationController.popToViewController(tiersVC, animated: true)
+        } else if let botMatchVC = navigationController.viewControllers.last(where: { $0 is BotMatchViewController }) {
+            navigationController.popToViewController(botMatchVC, animated: true)
+        } else if let serverBrowserVC = navigationController.viewControllers.last(where: { $0 is ServerBrowserViewController }) {
+            navigationController.popToViewController(serverBrowserVC, animated: true)
+        } else {
+            navigationController.popViewController(animated: true)
+        }
+    }
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        activateGameView(source: "viewDidAppear")
+    }
+
+    func activateAfterPausedMenuNavigation() {
+        activateGameView(source: "pausedMenuNavigation")
+    }
+
+    private func activateGameView(source: String) {
+        NSLog("[Q3Quit] GameViewController activate source=%@ navStack=%@",
+              source,
+              navigationController?.viewControllers.map { String(describing: type(of: $0)) }.joined(separator: " > ") ?? "nil")
+        let engineWasRunning = GameViewController.engineRunning
+        if let appWindow = (UIApplication.shared.delegate as? AppDelegate)?.uiwindow {
+            appWindow.windowLevel = .normal
+            appWindow.isHidden = false
+            appWindow.isUserInteractionEnabled = true
+        }
+        Sys_SetIOSMainLoopPaused(qboolean(0))
+        Sys_SetSDLWindowVisible(qboolean(1))
+        if engineWasRunning {
+            hideFrontendWindowForRunningEngine()
+        }
         applySessionIfNeeded()
         if GameViewController.engineRunning {
             startQuakeEngine()
@@ -58,6 +100,22 @@ class GameViewController: UIViewController {
         guard !hasStartedEngine else { return }
         hasStartedEngine = true
         startQuakeEngine()
+    }
+
+    private func hideFrontendWindowForRunningEngine() {
+        guard let appWindow = (UIApplication.shared.delegate as? AppDelegate)?.uiwindow else { return }
+        NSLog("[Q3Quit] GameViewController hide frontend window before hidden=%d key=%d interactive=%d level=%f",
+              appWindow.isHidden,
+              appWindow.isKeyWindow,
+              appWindow.isUserInteractionEnabled,
+              appWindow.windowLevel.rawValue)
+        appWindow.isUserInteractionEnabled = false
+        appWindow.isHidden = true
+        NSLog("[Q3Quit] GameViewController hide frontend window after hidden=%d key=%d interactive=%d level=%f",
+              appWindow.isHidden,
+              appWindow.isKeyWindow,
+              appWindow.isUserInteractionEnabled,
+              appWindow.windowLevel.rawValue)
     }
 
     private func applySessionIfNeeded() {
@@ -104,6 +162,11 @@ class GameViewController: UIViewController {
         }
 
         if GameViewController.engineRunning {
+            NSLog("[Q3Quit] GameViewController engine already running; queue reload map=%@ difficulty=%d botMatch=%d server=%@",
+                  mapName,
+                  selectedDifficulty,
+                  botMatch,
+                  selectedServer.map { "\($0.ip):\($0.port)" } ?? "nil")
             loadMapInRunningEngine(mapName: mapName, resourcePath: resourcePath)
             return
         }
@@ -139,13 +202,18 @@ class GameViewController: UIViewController {
     }
 
     private func loadMapInRunningEngine(mapName: String, resourcePath: String) {
-        guard !mapName.isEmpty else { return }
-
+        guard !mapName.isEmpty else {
+            NSLog("[Q3Quit] loadMapInRunningEngine skipped: empty map")
+            return
+        }
+        NSLog("[Q3Quit] loadMapInRunningEngine queue begin map=%@ botMatch=%d difficulty=%d", mapName, botMatch, selectedDifficulty)
         Cbuf_AddText("disconnect\n")
-        Cbuf_Execute()
+        Cbuf_AddText("wait 2\n")
 
         if botMatch {
-            Cbuf_AddText("wait ; wait ; map \(mapName) ; set sv_pure 0\n")
+            Cbuf_AddText("set sv_pure 0\n")
+            Cbuf_AddText("map \(mapName)\n")
+            Cbuf_AddText("wait 2\n")
             for bot in bots {
                 let skill = max(1, min(5, bot.skill))
                 Cbuf_AddText("addbot \(bot.name) \(skill)\n")
@@ -154,11 +222,13 @@ class GameViewController: UIViewController {
             Cbuf_AddText("set fraglimit \(fragLimit)\n")
         } else if selectedServer == nil {
             let skill = max(1, selectedDifficulty)
+            Cbuf_AddText("set sv_pure 0\n")
             Cbuf_AddText("set g_spSkill \(skill)\n")
             Cbuf_AddText("map \(mapName)\n")
-            Cbuf_AddText("set sv_pure 0\n")
+        } else if let selectedServer {
+            Cbuf_AddText("connect \(selectedServer.ip):\(selectedServer.port)\n")
         }
-        Cbuf_Execute()
+        NSLog("[Q3Quit] loadMapInRunningEngine queue end map=%@", mapName)
     }
 
     private func appendMapLaunchCommands(to argv: inout [String?], mapName: String) {

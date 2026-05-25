@@ -142,6 +142,145 @@ fileprivate final class PauseMenuButtonTarget: NSObject {
     }
 }
 
+fileprivate final class PauseChoiceViewController: UIViewController {
+    struct Choice {
+        let title: String
+        let isDestructive: Bool
+        let action: () -> Void
+
+        init(title: String, isDestructive: Bool = false, action: @escaping () -> Void) {
+            self.title = title
+            self.isDestructive = isDestructive
+            self.action = action
+        }
+    }
+
+    var onCancelled: (() -> Void)?
+
+    private let screenTitle: String
+    private let message: String?
+    private let choices: [Choice]
+    private let stackView = UIStackView()
+    private var buttonTargets: [PauseMenuButtonTarget] = []
+
+    init(title: String, message: String? = nil, choices: [Choice]) {
+        self.screenTitle = title
+        self.message = message
+        self.choices = choices
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var prefersStatusBarHidden: Bool { true }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.92)
+        view.isUserInteractionEnabled = true
+
+        let titleLabel = UILabel()
+        titleLabel.text = screenTitle
+        titleLabel.textColor = .white
+        titleLabel.font = UIFont.boldSystemFont(ofSize: 20)
+        titleLabel.textAlignment = .center
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        stackView.axis = .vertical
+        stackView.spacing = 8
+        stackView.distribution = .fill
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(titleLabel)
+        view.addSubview(stackView)
+
+        let guide = view.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: guide.topAnchor, constant: 8),
+            titleLabel.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -12),
+            titleLabel.heightAnchor.constraint(equalToConstant: 30),
+
+            stackView.topAnchor.constraint(greaterThanOrEqualTo: titleLabel.bottomAnchor, constant: 10),
+            stackView.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -16),
+            stackView.centerYAnchor.constraint(equalTo: guide.centerYAnchor),
+            stackView.bottomAnchor.constraint(lessThanOrEqualTo: guide.bottomAnchor, constant: -12)
+        ])
+
+        if let message, !message.isEmpty {
+            let messageView = UITextView()
+            messageView.text = message
+            messageView.textColor = .white
+            messageView.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+            messageView.font = UIFont(name: "Menlo-Regular", size: 13) ?? UIFont.systemFont(ofSize: 13)
+            messageView.isEditable = false
+            messageView.isSelectable = false
+            messageView.layer.cornerRadius = 8
+            messageView.textContainerInset = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+            messageView.heightAnchor.constraint(equalToConstant: 160).isActive = true
+            stackView.addArrangedSubview(messageView)
+        }
+
+        for choice in choices {
+            stackView.addArrangedSubview(makeButton(for: choice))
+        }
+        stackView.addArrangedSubview(makeCancelButton())
+    }
+
+    private func makeButton(for choice: Choice) -> UIButton {
+        let button = makeBaseButton(title: choice.title)
+        if choice.isDestructive {
+            button.backgroundColor = UIColor.red.withAlphaComponent(0.32)
+            button.layer.borderColor = UIColor.red.withAlphaComponent(0.8).cgColor
+        }
+        let target = PauseMenuButtonTarget { [weak self] in
+            NSLog("[Q3Quit] PauseChoice button tapped title=%@", choice.title)
+            self?.dismiss(animated: false) {
+                NSLog("[Q3Quit] PauseChoice dismissed title=%@; running action", choice.title)
+                choice.action()
+            }
+        }
+        buttonTargets.append(target)
+        button.addTarget(target, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+        return button
+    }
+
+    private func makeCancelButton() -> UIButton {
+        let button = makeBaseButton(title: "Annuler")
+        button.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        let target = PauseMenuButtonTarget { [weak self] in
+            self?.dismiss(animated: false) {
+                self?.onCancelled?()
+            }
+        }
+        buttonTargets.append(target)
+        button.addTarget(target, action: #selector(PauseMenuButtonTarget.tapped), for: .touchUpInside)
+        return button
+    }
+
+    private func makeBaseButton(title: String) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        button.titleLabel?.numberOfLines = 2
+        button.titleLabel?.textAlignment = .center
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.65
+        button.backgroundColor = UIColor.white.withAlphaComponent(0.14)
+        button.layer.cornerRadius = 8
+        button.layer.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
+        button.layer.borderWidth = 1
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
+        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        return button
+    }
+}
+
 fileprivate final class PauseBotPickerViewController: UIViewController {
     struct PendingBot {
         let name: String
@@ -565,6 +704,7 @@ fileprivate enum InGameNativeUI {
 
 extension Notification.Name {
     static let quakeReturnToMainMenu = Notification.Name("QuakeReturnToMainMenu")
+    static let quakeReturnToArenaSelection = Notification.Name("QuakeReturnToArenaSelection")
 }
 
 extension SDL_uikitviewcontroller {
@@ -960,6 +1100,7 @@ extension SDL_uikitviewcontroller {
     }
 
     @objc func setPauseMenuVisible(_ visible: Bool) {
+        view.isHidden = false
         if visible {
             showPauseOverlay()
         } else {
@@ -1099,19 +1240,38 @@ extension SDL_uikitviewcontroller {
         presenter.present(alert, animated: true)
     }
 
+    private func presentPauseSubscreen(_ viewController: UIViewController) {
+        viewController.modalPresentationStyle = .overFullScreen
+        dismissPauseMenuUI { [weak self] in
+            guard let self = self else { return }
+            self.setGameControlsHidden(true)
+            self.present(viewController, animated: false)
+        }
+    }
+
+    private func presentPauseChoices(title: String, choices: [PauseChoiceViewController.Choice]) {
+        let choiceVC = PauseChoiceViewController(title: title, choices: choices)
+        choiceVC.onCancelled = { [weak self] in
+            self?.restorePausePanelIfNeeded()
+        }
+        presentPauseSubscreen(choiceVC)
+    }
+
     private func presentPauseConfirmation(
         title: String,
         confirmTitle: String,
         onConfirm: @escaping () -> Void
     ) {
-        let alert = UIAlertController(title: title, message: nil, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
+        let confirmVC = PauseChoiceViewController(
+            title: title,
+            choices: [
+                PauseChoiceViewController.Choice(title: confirmTitle, isDestructive: true, action: onConfirm)
+            ]
+        )
+        confirmVC.onCancelled = { [weak self] in
             self?.restorePausePanelIfNeeded()
-        })
-        alert.addAction(UIAlertAction(title: confirmTitle, style: .destructive) { _ in
-            onConfirm()
-        })
-        pauseAlertPresenter().present(alert, animated: true)
+        }
+        presentPauseSubscreen(confirmVC)
     }
 
     private func quakeConsole(_ command: String) {
@@ -1148,18 +1308,18 @@ extension SDL_uikitviewcontroller {
     }
 
     private func presentTeamSelectionForAddBots(_ bots: [PauseBotPickerViewController.PendingBot]) {
-        let alert = UIAlertController(title: "Équipe du bot", message: nil, preferredStyle: .actionSheet)
         let teams = [("Libre", "free"), ("Rouge", "red"), ("Bleue", "blue")]
-        for (title, team) in teams {
-            alert.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+        let choices = teams.map { title, team in
+            PauseChoiceViewController.Choice(title: title) { [weak self] in
                 self?.executeAddBotsViaConsole(bots, team: team)
                 self?.finishPauseMenuSubflow()
-            })
+            }
         }
-        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
+        let teamVC = PauseChoiceViewController(title: "Équipe du bot", choices: choices)
+        teamVC.onCancelled = { [weak self] in
             self?.finishPauseMenuSubflow()
-        })
-        presentPauseActionSheet(alert)
+        }
+        presentPauseSubscreen(teamVC)
     }
 
     private func pauseServerInfoText() -> String {
@@ -1168,99 +1328,265 @@ extension SDL_uikitviewcontroller {
         return String(cString: buffer)
     }
 
+    private func quitLog(_ message: String) {
+        NSLog("[Q3Quit] %@", message)
+    }
+
+    private func quitViewControllerName(_ viewController: UIViewController?) -> String {
+        guard let viewController = viewController else { return "nil" }
+        return String(describing: type(of: viewController))
+    }
+
+    private func quitWindowDescription(_ window: UIWindow?) -> String {
+        guard let window = window else { return "nil" }
+        return "hidden=\(window.isHidden) key=\(window.isKeyWindow) interactive=\(window.isUserInteractionEnabled) level=\(window.windowLevel.rawValue) frame=\(window.frame)"
+    }
+
+    private func quitNavigationDescription(_ navigationController: UINavigationController) -> String {
+        let stack = navigationController.viewControllers.map { quitViewControllerName($0) }.joined(separator: " > ")
+        return "stack=[\(stack)] top=\(quitViewControllerName(navigationController.topViewController)) visible=\(quitViewControllerName(navigationController.visibleViewController)) presented=\(quitViewControllerName(navigationController.presentedViewController))"
+    }
+
+    private func quitLogApplicationWindows(_ label: String) {
+        let windows: [UIWindow]
+        if #available(iOS 13.0, *) {
+            windows = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+        } else {
+            windows = UIApplication.shared.windows
+        }
+
+        let description = windows.enumerated().map { index, window in
+            "\(index):\(type(of: window)) \(quitWindowDescription(window)) root=\(quitViewControllerName(window.rootViewController))"
+        }.joined(separator: " | ")
+        quitLog("\(label) windows=\(description)")
+    }
+
+    private func replaceRootNavigationStack(showArenaSelection: Bool, app: AppDelegate) {
+        Sys_SetIOSMainLoopPaused(qboolean(1))
+        quitLog("replaceRootNavigationStack requested iOS main loop pause")
+        quitLogApplicationWindows("replaceRootNavigationStack before")
+
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        guard let navigationController = storyboard.instantiateViewController(withIdentifier: "RootNC") as? UINavigationController else {
+            quitLog("replaceRootNavigationStack failed: RootNC missing")
+            return
+        }
+
+        if showArenaSelection {
+            guard let mainMenuVC = storyboard.instantiateViewController(withIdentifier: "MainMenuViewController") as? MainMenuViewController,
+                  let tiersVC = storyboard.instantiateViewController(withIdentifier: "TiersListViewController") as? TiersListViewController else {
+                quitLog("replaceRootNavigationStack failed: arena controllers missing")
+                return
+            }
+            navigationController.setViewControllers([mainMenuVC, tiersVC], animated: false)
+        }
+
+        quitLog("replaceRootNavigationStack showArenaSelection=\(showArenaSelection) newNav=\(quitNavigationDescription(navigationController))")
+        navigationController.view.isUserInteractionEnabled = true
+        app.rootNavigationController = navigationController
+        app.uiwindow.rootViewController = navigationController
+        app.uiwindow.isUserInteractionEnabled = true
+        foregroundAppWindow(app.uiwindow)
+        backgroundSDLWindow()
+        app.uiwindow.isHidden = false
+        app.uiwindow.isUserInteractionEnabled = true
+        app.uiwindow.makeKeyAndVisible()
+        navigationController.view.isUserInteractionEnabled = true
+        navigationController.view.setNeedsLayout()
+        navigationController.view.layoutIfNeeded()
+        quitLogApplicationWindows("replaceRootNavigationStack after")
+        quitLog("replaceRootNavigationStack end appWindow=\(quitWindowDescription(app.uiwindow)) newNav=\(quitNavigationDescription(navigationController))")
+    }
+
+    private func returnToArenaSelection() {
+        quitLog("returnToArenaSelection begin main=\(Thread.isMainThread) pauseOpen=\(CL_IsPauseMenuOpen()) selfWindow=\(quitWindowDescription(view.window))")
+        closePauseMenuAndQueueDisconnect()
+
+        guard let app = UIApplication.shared.delegate as? AppDelegate,
+              let navigationController = app.rootNavigationController else {
+            quitLog("returnToArenaSelection missing app/nav; posting notification fallback")
+            NotificationCenter.default.post(name: .quakeReturnToArenaSelection, object: nil)
+            return
+        }
+        quitLog("returnToArenaSelection before navigate appWindow=\(quitWindowDescription(app.uiwindow)) nav=\(quitNavigationDescription(navigationController))")
+
+        let navigate = {
+            self.quitLog("returnToArenaSelection navigate start nav=\(self.quitNavigationDescription(navigationController))")
+            self.replaceRootNavigationStack(showArenaSelection: true, app: app)
+            self.quitLog("returnToArenaSelection end appWindow=\(self.quitWindowDescription(app.uiwindow)) selfWindow=\(self.quitWindowDescription(self.view.window))")
+        }
+
+        if let presented = navigationController.presentedViewController {
+            quitLog("returnToArenaSelection dismissing presented=\(quitViewControllerName(presented))")
+            presented.dismiss(animated: false, completion: navigate)
+        } else {
+            quitLog("returnToArenaSelection no presented controller")
+            navigate()
+        }
+    }
+
+    private func returnToMainMenu() {
+        quitLog("returnToMainMenu begin main=\(Thread.isMainThread) pauseOpen=\(CL_IsPauseMenuOpen()) selfWindow=\(quitWindowDescription(view.window))")
+        closePauseMenuAndQueueDisconnect()
+
+        guard let app = UIApplication.shared.delegate as? AppDelegate,
+              let navigationController = app.rootNavigationController else {
+            quitLog("returnToMainMenu missing app/nav; posting notification fallback")
+            NotificationCenter.default.post(name: .quakeReturnToMainMenu, object: nil)
+            return
+        }
+        quitLog("returnToMainMenu before navigate appWindow=\(quitWindowDescription(app.uiwindow)) nav=\(quitNavigationDescription(navigationController))")
+
+        let navigate = {
+            self.quitLog("returnToMainMenu navigate start nav=\(self.quitNavigationDescription(navigationController))")
+            self.replaceRootNavigationStack(showArenaSelection: false, app: app)
+            self.quitLog("returnToMainMenu end appWindow=\(self.quitWindowDescription(app.uiwindow)) selfWindow=\(self.quitWindowDescription(self.view.window))")
+        }
+
+        if let presented = navigationController.presentedViewController {
+            quitLog("returnToMainMenu dismissing presented=\(quitViewControllerName(presented))")
+            presented.dismiss(animated: false, completion: navigate)
+        } else {
+            quitLog("returnToMainMenu no presented controller")
+            navigate()
+        }
+    }
+
+    private func popNavigationStack(on navigationController: UINavigationController, to target: UIViewController) {
+        let popped = navigationController.popToViewController(target, animated: false) ?? []
+        quitLog("popNavigationStack target=\(quitViewControllerName(target)) popped=[\(popped.map { quitViewControllerName($0) }.joined(separator: " > "))] nav=\(quitNavigationDescription(navigationController))")
+        guard navigationController.topViewController !== target else { return }
+        quitLog("popNavigationStack target not top after pop; forcing setViewControllers")
+        setNavigationStack(on: navigationController, through: target)
+    }
+
+    private func setNavigationStack(on navigationController: UINavigationController, through target: UIViewController) {
+        guard let index = navigationController.viewControllers.firstIndex(of: target) else { return }
+        let stack = Array(navigationController.viewControllers.prefix(through: index))
+        quitLog("setNavigationStack target=\(quitViewControllerName(target)) index=\(index) newStack=[\(stack.map { quitViewControllerName($0) }.joined(separator: " > "))]")
+        navigationController.setViewControllers(stack, animated: false)
+        navigationController.view.setNeedsLayout()
+        navigationController.view.layoutIfNeeded()
+        quitLog("setNavigationStack after force nav=\(quitNavigationDescription(navigationController))")
+    }
+
+    private func foregroundAppWindow(_ window: UIWindow) {
+        quitLog("foregroundAppWindow begin appWindow=\(quitWindowDescription(window)) selfWindow=\(quitWindowDescription(view.window)) selfViewHidden=\(view.isHidden)")
+        InGameNativeUI.deactivate()
+        quitLog("foregroundAppWindow after InGameNativeUI.deactivate selfWindow=\(quitWindowDescription(view.window))")
+        let sdlWindowLevel = view.window?.windowLevel.rawValue ?? UIWindow.Level.normal.rawValue
+        window.windowLevel = UIWindow.Level(rawValue: max(UIWindow.Level.alert.rawValue + 2, sdlWindowLevel + 2))
+        window.isHidden = false
+        window.isUserInteractionEnabled = true
+        window.rootViewController?.view.isUserInteractionEnabled = true
+        window.makeKeyAndVisible()
+        window.rootViewController?.view.setNeedsLayout()
+        window.rootViewController?.view.layoutIfNeeded()
+        quitLog("foregroundAppWindow end appWindow=\(quitWindowDescription(window)) selfWindow=\(quitWindowDescription(view.window)) selfViewHidden=\(view.isHidden)")
+    }
+
+    private func backgroundSDLWindow() {
+        quitLog("backgroundSDLWindow begin selfWindow=\(quitWindowDescription(view.window)) selfViewHidden=\(view.isHidden)")
+        let sdlWindow = view.window
+        sdlWindow?.isUserInteractionEnabled = false
+        view.isHidden = false
+        quitLog("backgroundSDLWindow end selfWindow=\(quitWindowDescription(view.window)) selfViewHidden=\(view.isHidden)")
+    }
+
+    private func closePauseMenuAndQueueDisconnect() {
+        quitLog("closePauseMenuAndQueueDisconnect before pauseOpen=\(CL_IsPauseMenuOpen())")
+        CL_ClosePauseMenu()
+        quitLog("closePauseMenuAndQueueDisconnect after close pauseOpen=\(CL_IsPauseMenuOpen()); queue disconnect")
+        Cbuf_AddText("disconnect\n")
+    }
+
     @objc func pauseResumeTapped() {
         CL_ClosePauseMenu()
     }
 
     @objc func pauseTeamTapped() {
-        let alert = UIAlertController(title: "Choisir une équipe", message: nil, preferredStyle: .actionSheet)
         let teams = [("Rouge", "red"), ("Bleue", "blue"), ("Libre", "free"), ("Spectateur", "spectator")]
-        for (title, team) in teams {
-            alert.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+        let choices = teams.map { title, team in
+            PauseChoiceViewController.Choice(title: title) { [weak self] in
                 self?.quakeConsole("cmd team \(team)")
                 self?.restorePausePanelIfNeeded()
-            })
+            }
         }
-        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
-            self?.restorePausePanelIfNeeded()
-        })
-        presentPauseActionSheet(alert)
+        presentPauseChoices(title: "Choisir une équipe", choices: choices)
     }
 
     @objc func pauseTeamOrdersTapped() {
-        let alert = UIAlertController(title: "Ordres d'équipe", message: nil, preferredStyle: .actionSheet)
         let orders = [
             "Tout le monde attaque !",
             "Tout le monde défend !",
             "Suivez-moi",
             "Gardez la position"
         ]
-        for order in orders {
-            alert.addAction(UIAlertAction(title: order, style: .default) { [weak self] _ in
+        let choices = orders.map { order in
+            PauseChoiceViewController.Choice(title: order) { [weak self] in
                 let escaped = order.replacingOccurrences(of: "\"", with: "\\\"")
                 self?.quakeConsole("say_team \"\(escaped)\"")
                 self?.restorePausePanelIfNeeded()
-            })
+            }
         }
-        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
-            self?.restorePausePanelIfNeeded()
-        })
-        presentPauseActionSheet(alert)
+        presentPauseChoices(title: "Ordres d'équipe", choices: choices)
     }
 
     @objc func pauseSetupTapped() {
-        let alert = UIAlertController(title: "Réglages rapides", message: nil, preferredStyle: .actionSheet)
         let settings = [
             ("Volume jeu 50 %", "set s_volume 0.5"),
             ("Volume jeu 80 %", "set s_volume 0.8"),
             ("Volume jeu 100 %", "set s_volume 1"),
             ("Musique 50 %", "set s_musicvolume 0.5")
         ]
-        for (title, command) in settings {
-            alert.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+        let choices = settings.map { title, command in
+            PauseChoiceViewController.Choice(title: title) { [weak self] in
                 self?.quakeConsole(command)
                 self?.restorePausePanelIfNeeded()
-            })
+            }
         }
-        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
-            self?.restorePausePanelIfNeeded()
-        })
-        presentPauseActionSheet(alert)
+        presentPauseChoices(title: "Réglages rapides", choices: choices)
     }
 
     @objc func pauseServerInfoTapped() {
-        let alert = UIAlertController(
+        let infoVC = PauseChoiceViewController(
             title: "Infos serveur",
             message: pauseServerInfoText(),
-            preferredStyle: .alert
+            choices: [
+                PauseChoiceViewController.Choice(title: "OK") { [weak self] in
+                    self?.restorePausePanelIfNeeded()
+                }
+            ]
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+        infoVC.onCancelled = { [weak self] in
             self?.restorePausePanelIfNeeded()
-        })
-        pauseAlertPresenter().present(alert, animated: true)
+        }
+        presentPauseSubscreen(infoVC)
     }
 
     @objc func pauseRestartTapped() {
-        presentPauseConfirmation(title: "Redémarrer l'arène ?", confirmTitle: "Redémarrer") { [weak self] in
-            CL_ClosePauseMenu()
-            self?.quakeConsole("map_restart 0")
+        presentPauseConfirmation(title: "Redémarrer l'arène ?", confirmTitle: "Redémarrer") {
+            CL_RestartArena()
         }
     }
 
     @objc func pauseLeaveTapped() {
+        quitLog("pauseLeaveTapped present confirmation")
         presentPauseConfirmation(title: "Quitter l'arène ?", confirmTitle: "Quitter") { [weak self] in
-            CL_ClosePauseMenu()
-            self?.quakeConsole("disconnect")
+            guard let self = self else { return }
+            self.quitLog("pauseLeave confirm action")
+            self.returnToArenaSelection()
         }
     }
 
     @objc func pauseExitGameTapped() {
+        quitLog("pauseExitGameTapped present confirmation")
         presentPauseConfirmation(title: "Quitter le jeu ?", confirmTitle: "Quitter") { [weak self] in
-            CL_ClosePauseMenu()
-            self?.quakeConsole("disconnect")
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .quakeReturnToMainMenu, object: nil)
-            }
+            guard let self = self else { return }
+            self.quitLog("pauseExitGame confirm action")
+            self.returnToMainMenu()
         }
     }
 
@@ -1282,12 +1608,7 @@ extension SDL_uikitviewcontroller {
             }
         }
 
-        dismissPauseMenuUI { [weak self] in
-            guard let self = self else { return }
-
-            self.setGameControlsHidden(true)
-            self.present(botPicker, animated: false)
-        }
+        presentPauseSubscreen(botPicker)
     }
 
     @objc func pauseRemoveBotTapped() {
@@ -1305,17 +1626,13 @@ extension SDL_uikitviewcontroller {
         }
         guard !names.isEmpty else { return }
 
-        let alert = UIAlertController(title: "Retirer un bot", message: nil, preferredStyle: .actionSheet)
-        for name in names {
-            alert.addAction(UIAlertAction(title: name, style: .destructive) { [weak self] _ in
+        let choices = names.map { name in
+            PauseChoiceViewController.Choice(title: name, isDestructive: true) { [weak self] in
                 CL_KickBotByName(name)
                 self?.restorePausePanelIfNeeded()
-            })
+            }
         }
-        alert.addAction(UIAlertAction(title: "Annuler", style: .cancel) { [weak self] _ in
-            self?.restorePausePanelIfNeeded()
-        })
-        presentPauseActionSheet(alert)
+        presentPauseChoices(title: "Retirer un bot", choices: choices)
     }
 
     open override func viewDidLayoutSubviews() {

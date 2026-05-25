@@ -61,6 +61,19 @@ class TiersListViewController: UIViewController {
         tiersList.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        NSLog("[Q3Quit] TiersListViewController viewDidAppear window=%@ tableInteractive=%d viewInteractive=%d",
+              String(describing: view.window),
+              tiersList.isUserInteractionEnabled,
+              view.isUserInteractionEnabled)
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesBegan(touches, with: event)
+        NSLog("[Q3Quit] TiersListViewController touchesBegan count=%d", touches.count)
+    }
+
     private func rebuildMapList() {
         guard let resourcePath = Bundle.main.resourcePath else {
             displayTiers = tiers
@@ -87,6 +100,10 @@ class TiersListViewController: UIViewController {
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        NSLog("[Q3Quit] TiersListViewController prepare segue=%@ selectedMap=%@ destination=%@",
+              segue.identifier ?? "nil",
+              selectedMap,
+              String(describing: type(of: segue.destination)))
         guard segue.identifier == "DifficultySegue",
               let difficultyVC = segue.destination as? DifficultyViewController else {
             return
@@ -98,7 +115,16 @@ class TiersListViewController: UIViewController {
 extension TiersListViewController : UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        NSLog("[Q3Quit] TiersListViewController didSelect section=%d row=%d", indexPath.section, indexPath.row)
         selectedMap = displayMaps[indexPath.section][indexPath.row].map
+        if Sys_IsIOSMainLoopPaused().rawValue != 0,
+           let difficultyVC = storyboard?.instantiateViewController(withIdentifier: "DifficultyViewController") as? DifficultyViewController {
+            NSLog("[Q3Quit] TiersListViewController push DifficultyViewController without animation selectedMap=%@", selectedMap)
+            difficultyVC.selectedMap = selectedMap
+            navigationController?.pushViewController(difficultyVC, animated: false)
+            return
+        }
+        NSLog("[Q3Quit] TiersListViewController perform DifficultySegue selectedMap=%@", selectedMap)
         performSegue(withIdentifier: "DifficultySegue", sender: self)
     }
     

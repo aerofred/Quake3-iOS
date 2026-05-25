@@ -31,6 +31,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <ctype.h>
 #include <errno.h>
 
+#ifdef IOS
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 #ifndef DEDICATED
 #ifdef USE_LOCAL_HEADERS
 #	include "SDL.h"
@@ -46,6 +50,29 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "../qcommon/q_shared.h"
 #include "../qcommon/qcommon.h"
+
+#ifdef IOS
+static volatile qboolean sys_iosMainLoopPaused = qfalse;
+static volatile int sys_iosPauseAfterFrames = 0;
+
+void Sys_SetIOSMainLoopPaused( qboolean paused )
+{
+	sys_iosMainLoopPaused = paused;
+	sys_iosPauseAfterFrames = paused ? 3 : 0;
+	printf( "[Q3Quit] Sys_SetIOSMainLoopPaused paused=%d graceFrames=%d\n", paused, sys_iosPauseAfterFrames );
+}
+
+qboolean Sys_IsIOSMainLoopPaused( void )
+{
+	return sys_iosMainLoopPaused;
+}
+
+static void Sys_IOSPumpRunLoop( double seconds )
+{
+	CFRunLoopRunInMode( kCFRunLoopDefaultMode, seconds, true );
+	CFRunLoopRunInMode( CFSTR( "UITrackingRunLoopMode" ), 0.0, true );
+}
+#endif
 
 static char binaryPath[ MAX_OSPATH ] = { 0 };
 static char installPath[ MAX_OSPATH ] = { 0 };
@@ -813,11 +840,24 @@ int main( int argc, char **argv )
 
 	while( 1 )
 	{
+#ifdef IOS
+		if( sys_iosMainLoopPaused )
+		{
+			if( sys_iosPauseAfterFrames <= 0 )
+			{
+				Sys_IOSPumpRunLoop( 0.25 );
+				continue;
+			}
+			sys_iosPauseAfterFrames--;
+		}
+#endif
 		Com_Frame( );
+#ifdef IOS
+		Sys_IOSPumpRunLoop( 0.0 );
+#endif
 	}
 
 #ifndef IOS
 	return 0;
 #endif
 }
-
