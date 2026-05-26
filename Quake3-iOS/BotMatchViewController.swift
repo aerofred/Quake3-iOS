@@ -94,7 +94,6 @@ class BotMatchViewController: UIViewController {
         }
 
         if button.currentTitle == "< BACK" {
-            NSLog("[Q3Quit] BotMatchViewController back without unwind animation from paused main menu")
             navigationController?.popViewController(animated: false)
             return false
         }
@@ -115,7 +114,6 @@ class BotMatchViewController: UIViewController {
             gameVC.bots = bots
             gameVC.fragLimit = fragLimit
             gameVC.timeLimit = timeLimit
-            NSLog("[Q3Quit] BotMatchViewController push GameViewController without animation map=%@ bots=%d", map, bots.count)
             navigationController?.pushViewController(gameVC, animated: false)
             navigationController?.view.setNeedsLayout()
             navigationController?.view.layoutIfNeeded()

@@ -640,13 +640,10 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 	// have the server allocate a client slot
 	clientNum = trap_BotAllocateClient();
 	if ( clientNum == -1 ) {
-		G_Printf( "[Q3Bot] G_AddBot no slot name=%s skill=%.2f team=%s delay=%d maxclients=%d\n", name, skill, team ? team : "", delay, g_maxclients.integer );
 		G_Printf( S_COLOR_RED "Unable to add bot. All player slots are in use.\n" );
 		G_Printf( S_COLOR_RED "Start server with more 'open' slots (or check setting of sv_maxclients cvar).\n" );
 		return;
 	}
-	G_Printf( "[Q3Bot] G_AddBot allocated slot=%d name=%s skill=%.2f teamArg=%s delay=%d gametype=%d maxclients=%d\n",
-		clientNum, name, skill, team ? team : "", delay, g_gametype.integer, g_maxclients.integer );
 
 	// set default team
 	if( !team || !*team ) {
@@ -693,12 +690,10 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 	}
 
 	if ( !botinfo ) {
-		G_Printf( "[Q3Bot] G_AddBot missing botinfo name=%s slot=%d\n", name, clientNum );
 		G_Printf( S_COLOR_RED "Error: Bot '%s' not defined\n", name );
 		trap_BotFreeClient( clientNum );
 		return;
 	}
-	G_Printf( "[Q3Bot] G_AddBot botinfo found requested=%s botName=%s\n", name, Info_ValueForKey( botinfo, "name" ) );
 
 	// create the bot's userinfo
 	userinfo[0] = '\0';
@@ -768,7 +763,6 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 
 	s = Info_ValueForKey(botinfo, "aifile");
 	if (!*s ) {
-		G_Printf( "[Q3Bot] G_AddBot missing aifile name=%s slot=%d\n", name, clientNum );
 		trap_Print( S_COLOR_RED "Error: bot has no aifile specified\n" );
 		trap_BotFreeClient( clientNum );
 		return;
@@ -783,17 +777,14 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 
 	// have it connect to the game as a normal client
 	if ( ClientConnect( clientNum, qtrue, qtrue ) ) {
-		G_Printf( "[Q3Bot] G_AddBot ClientConnect rejected name=%s slot=%d\n", name, clientNum );
 		return;
 	}
 
 	if( delay == 0 ) {
-		G_Printf( "[Q3Bot] G_AddBot ClientBegin now name=%s slot=%d\n", name, clientNum );
 		ClientBegin( clientNum );
 		return;
 	}
 
-	G_Printf( "[Q3Bot] G_AddBot queue spawn name=%s slot=%d delay=%d\n", name, clientNum, delay );
 	AddBotToSpawnQueue( clientNum, delay );
 }
 
@@ -813,7 +804,6 @@ void Svcmd_AddBot_f( void ) {
 
 	// are bots enabled?
 	if ( !trap_Cvar_VariableIntegerValue( "bot_enable" ) ) {
-		G_Printf( "[Q3Bot] Svcmd_AddBot ignored bot_enable=0\n" );
 		return;
 	}
 
@@ -848,8 +838,6 @@ void Svcmd_AddBot_f( void ) {
 	// alternative name
 	trap_Argv( 5, altname, sizeof( altname ) );
 
-	G_Printf( "[Q3Bot] Svcmd_AddBot name=%s skill=%.2f team=%s delay=%d altname=%s gametype=%d maxclients=%d\n",
-		name, skill, team, delay, altname, g_gametype.integer, g_maxclients.integer );
 	G_AddBot( name, skill, team, delay, altname );
 
 	// if this was issued during gameplay and we are playing locally,
@@ -1087,8 +1075,6 @@ static char *G_GenerateBotInfoByName( const char *name ) {
 		Info_SetValueForKey( g_generatedBotInfo, "name", bot->displayName );
 		Info_SetValueForKey( g_generatedBotInfo, "model", bot->model );
 		Info_SetValueForKey( g_generatedBotInfo, "aifile", va( "bots/%s_c.c", bot->aifileBase ) );
-		G_Printf( "[Q3Bot] generated botinfo name=%s model=%s aifile=bots/%s_c.c\n",
-			bot->displayName, bot->model, bot->aifileBase );
 		return g_generatedBotInfo;
 	}
 

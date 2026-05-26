@@ -30,7 +30,6 @@ class OptionsViewController: UIViewController {
     @IBAction func savePlayerName(_ sender: UIButton) {
         defaults.set(playerNameField.text!, forKey: "playerName")
         let isMainLoopPaused = Sys_IsIOSMainLoopPaused().rawValue != 0
-        NSLog("[Q3Quit] OptionsViewController savePlayerName paused=%d", isMainLoopPaused)
         navigationController?.popViewController(animated: !isMainLoopPaused)
     }
 
@@ -41,7 +40,6 @@ class OptionsViewController: UIViewController {
             return true
         }
 
-        NSLog("[Q3Quit] OptionsViewController back without unwind animation from paused main menu")
         navigationController?.popViewController(animated: false)
         return false
     }

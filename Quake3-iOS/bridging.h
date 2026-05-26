@@ -70,8 +70,6 @@ void CL_LeaveArena( void );
 void CL_ExitGame( void );
 void CL_AddBotCommand( const char *name, int skill );
 void CL_QueueAddBotCommand( const char *name, int skill );
-int CL_QueuedAddBotCommandCount( void );
-void CL_GetQueuedAddBotCommandStatus( char *out, int outSize );
 void CL_ExecuteConsole( const char *text );
 int CL_GetCvarInt( const char *name );
 void CL_GetCvarString( const char *name, char *out, int outSize );

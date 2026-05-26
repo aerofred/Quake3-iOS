@@ -160,18 +160,6 @@ class MainMenuViewController: UIViewController {
         // Do any additional setup after loading the view.
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        NSLog("[Q3Quit] MainMenuViewController viewDidAppear window=%@ viewInteractive=%d",
-              String(describing: view.window),
-              view.isUserInteractionEnabled)
-    }
-
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        super.touchesBegan(touches, with: event)
-        NSLog("[Q3Quit] MainMenuViewController touchesBegan count=%d", touches.count)
-    }
-
     override func shouldPerformSegue(withIdentifier identifier: String?, sender: Any?) -> Bool {
         guard Sys_IsIOSMainLoopPaused().rawValue != 0,
               let button = sender as? UIButton else {
@@ -180,21 +168,18 @@ class MainMenuViewController: UIViewController {
 
         if button.currentTitle == "SINGLE PLAYER",
            let tiersVC = storyboard?.instantiateViewController(withIdentifier: "TiersListViewController") as? TiersListViewController {
-            NSLog("[Q3Quit] MainMenuViewController push TiersListViewController without animation from paused main menu")
             navigationController?.pushViewController(tiersVC, animated: false)
             return false
         }
 
         if button.currentTitle == "OPTIONS",
            let optionsVC = storyboard?.instantiateViewController(withIdentifier: "OptionsViewController") as? OptionsViewController {
-            NSLog("[Q3Quit] MainMenuViewController push OptionsViewController without animation from paused main menu")
             navigationController?.pushViewController(optionsVC, animated: false)
             return false
         }
 
         if button.currentTitle == "BOT MATCH",
            let botMatchVC = storyboard?.instantiateViewController(withIdentifier: "BotMatchViewController") as? BotMatchViewController {
-            NSLog("[Q3Quit] MainMenuViewController push BotMatchViewController without animation from paused main menu")
             navigationController?.pushViewController(botMatchVC, animated: false)
             return false
         }

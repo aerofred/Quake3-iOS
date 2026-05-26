@@ -59,7 +59,6 @@ void Sys_SetIOSMainLoopPaused( qboolean paused )
 {
 	sys_iosMainLoopPaused = paused;
 	sys_iosPauseAfterFrames = paused ? 3 : 0;
-	printf( "[Q3Quit] Sys_SetIOSMainLoopPaused paused=%d graceFrames=%d\n", paused, sys_iosPauseAfterFrames );
 }
 
 qboolean Sys_IsIOSMainLoopPaused( void )

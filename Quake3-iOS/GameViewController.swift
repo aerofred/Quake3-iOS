@@ -78,9 +78,7 @@ class GameViewController: UIViewController {
     }
 
     private func activateGameView(source: String) {
-        NSLog("[Q3Quit] GameViewController activate source=%@ navStack=%@",
-              source,
-              navigationController?.viewControllers.map { String(describing: type(of: $0)) }.joined(separator: " > ") ?? "nil")
+        _ = source
         let engineWasRunning = GameViewController.engineRunning
         if let appWindow = (UIApplication.shared.delegate as? AppDelegate)?.uiwindow {
             appWindow.windowLevel = .normal
@@ -104,18 +102,8 @@ class GameViewController: UIViewController {
 
     private func hideFrontendWindowForRunningEngine() {
         guard let appWindow = (UIApplication.shared.delegate as? AppDelegate)?.uiwindow else { return }
-        NSLog("[Q3Quit] GameViewController hide frontend window before hidden=%d key=%d interactive=%d level=%f",
-              appWindow.isHidden,
-              appWindow.isKeyWindow,
-              appWindow.isUserInteractionEnabled,
-              appWindow.windowLevel.rawValue)
         appWindow.isUserInteractionEnabled = false
         appWindow.isHidden = true
-        NSLog("[Q3Quit] GameViewController hide frontend window after hidden=%d key=%d interactive=%d level=%f",
-              appWindow.isHidden,
-              appWindow.isKeyWindow,
-              appWindow.isUserInteractionEnabled,
-              appWindow.windowLevel.rawValue)
     }
 
     private func applySessionIfNeeded() {
@@ -162,20 +150,10 @@ class GameViewController: UIViewController {
         }
 
         if GameViewController.engineRunning {
-            NSLog("[Q3Quit] GameViewController engine already running; queue reload map=%@ difficulty=%d botMatch=%d server=%@",
-                  mapName,
-                  selectedDifficulty,
-                  botMatch,
-                  selectedServer.map { "\($0.ip):\($0.port)" } ?? "nil")
             loadMapInRunningEngine(mapName: mapName, resourcePath: resourcePath)
             return
         }
         GameViewController.engineRunning = true
-        NSLog("[Q3Quit] GameViewController engine launch map=%@ difficulty=%d botMatch=%d bots=%@",
-              mapName,
-              selectedDifficulty,
-              botMatch,
-              botLogDescription())
 
         var argv: [String?] = [
             resourcePath + "/quake3",
@@ -209,10 +187,9 @@ class GameViewController: UIViewController {
 
     private func loadMapInRunningEngine(mapName: String, resourcePath: String) {
         guard !mapName.isEmpty else {
-            NSLog("[Q3Quit] loadMapInRunningEngine skipped: empty map")
             return
         }
-        NSLog("[Q3Quit] loadMapInRunningEngine queue begin map=%@ botMatch=%d difficulty=%d", mapName, botMatch, selectedDifficulty)
+        _ = resourcePath
         Cbuf_AddText("disconnect\n")
         Cbuf_AddText("wait 2\n")
 
@@ -224,8 +201,7 @@ class GameViewController: UIViewController {
             Cbuf_AddText("set singleplayer 0\n")
             Cbuf_AddText("set g_gametype 0\n")
             Cbuf_AddText("map \(mapName)\n")
-            Cbuf_AddText("wait 2\n")
-            queueAddBotCommands()
+            scheduleBotCommands(delay: 4.0)
             Cbuf_AddText("set timelimit \(timeLimit)\n")
             Cbuf_AddText("set fraglimit \(fragLimit)\n")
         } else if selectedServer == nil {
@@ -238,12 +214,10 @@ class GameViewController: UIViewController {
             Cbuf_AddText("set g_gametype \(singlePlayerGameType(for: mapName))\n")
             Cbuf_AddText("set g_spSkill \(skill)\n")
             Cbuf_AddText("map \(mapName)\n")
-            Cbuf_AddText("wait 2\n")
-            queueAddBotCommands(overrideSkill: skill)
+            scheduleBotCommands(delay: 4.0, overrideSkill: skill)
         } else if let selectedServer {
             Cbuf_AddText("connect \(selectedServer.ip):\(selectedServer.port)\n")
         }
-        NSLog("[Q3Quit] loadMapInRunningEngine queue end map=%@", mapName)
     }
 
     private func appendMapLaunchCommands(to argv: inout [String?], mapName: String) {
@@ -280,42 +254,21 @@ class GameViewController: UIViewController {
         }
     }
 
-    private func queueAddBotCommands(overrideSkill: Int? = nil) {
-        let commands = addBotCommands(overrideSkill: overrideSkill)
-        guard !commands.isEmpty else { return }
-
-        NSLog("[Q3Quit] queueAddBotCommands bots=%@", commands.map { "\($0.name):\($0.skill)" }.joined(separator: ","))
-        for command in commands {
-            Cbuf_AddText("wait\n")
-            Cbuf_AddText("addbot \(command.name) \(command.skill) free 250\n")
-        }
-    }
-
     private func scheduleInitialBotCommandsIfNeeded(mapName: String) {
         guard selectedServer == nil, !mapName.isEmpty else { return }
         let overrideSkill = botMatch ? nil : clampedSinglePlayerSkill()
+        scheduleBotCommands(delay: 8.0, overrideSkill: overrideSkill)
+    }
+
+    private func scheduleBotCommands(delay: TimeInterval, overrideSkill: Int? = nil) {
         let commands = addBotCommands(overrideSkill: overrideSkill)
         guard !commands.isEmpty else { return }
 
-        NSLog("[Q3Quit] scheduleInitialBotCommands bots=%@", commands.map { "\($0.name):\($0.skill)" }.joined(separator: ","))
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 8.0) {
-            NSLog("[Q3Quit] scheduleInitialBotCommands firing bots=%@", commands.map { "\($0.name):\($0.skill)" }.joined(separator: ","))
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) {
             for command in commands {
                 CL_QueueAddBotCommand(command.name, Int32(command.skill))
             }
-            self.logQueuedBotStatus("after enqueue")
-            [1.0, 2.0, 4.0, 6.0].forEach { delay in
-                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) {
-                    self.logQueuedBotStatus(String(format: "after %.0fs", delay))
-                }
-            }
         }
-    }
-
-    private func logQueuedBotStatus(_ label: String) {
-        var status = [CChar](repeating: 0, count: 512)
-        CL_GetQueuedAddBotCommandStatus(&status, Int32(status.count))
-        NSLog("[Q3Quit] nativeBotQueue %@ %@", label, String(cString: status))
     }
 
     private func addBotCommands(overrideSkill: Int? = nil) -> [(name: String, skill: Int)] {
@@ -337,11 +290,6 @@ class GameViewController: UIViewController {
 
     private func singlePlayerGameType(for mapName: String) -> Int {
         mapName.lowercased().contains("tourney") ? 1 : 0
-    }
-
-    private func botLogDescription() -> String {
-        let commands = addBotCommands(overrideSkill: botMatch ? nil : clampedSinglePlayerSkill())
-        return commands.map { "\($0.name):\($0.skill)" }.joined(separator: ",")
     }
 
     private func appendControlAndVideoSettings(to argv: inout [String?], resourcePath: String) {

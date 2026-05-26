@@ -67,38 +67,22 @@ UIViewController* GetSDLViewController(SDL_Window *sdlWindow) {
 
 void Sys_SetSDLWindowVisible( qboolean visible ) {
     if ( !SDL_window ) {
-        NSLog(@"[Q3Quit] Sys_SetSDLWindowVisible visible=%d skipped: SDL_window nil", visible);
         return;
     }
 
     SDL_SysWMinfo systemWindowInfo;
     SDL_VERSION(&systemWindowInfo.version);
     if ( !SDL_GetWindowWMInfo(SDL_window, &systemWindowInfo)) {
-        NSLog(@"[Q3Quit] Sys_SetSDLWindowVisible visible=%d skipped: SDL_GetWindowWMInfo failed", visible);
         return;
     }
 
     UIWindow *sdlUIKitWindow = systemWindowInfo.info.uikit.window;
     void (^visibilityBlock)(void) = ^{
-        NSLog(@"[Q3Quit] Sys_SetSDLWindowVisible apply visible=%d before hidden=%d key=%d level=%f window=%@ root=%@",
-              visible,
-              sdlUIKitWindow.hidden,
-              sdlUIKitWindow.isKeyWindow,
-              sdlUIKitWindow.windowLevel,
-              sdlUIKitWindow,
-              sdlUIKitWindow.rootViewController);
         sdlUIKitWindow.hidden = visible ? NO : YES;
         sdlUIKitWindow.userInteractionEnabled = visible ? YES : NO;
         if ( visible ) {
             [sdlUIKitWindow makeKeyAndVisible];
         }
-        NSLog(@"[Q3Quit] Sys_SetSDLWindowVisible apply visible=%d after hidden=%d key=%d level=%f window=%@ root=%@",
-              visible,
-              sdlUIKitWindow.hidden,
-              sdlUIKitWindow.isKeyWindow,
-              sdlUIKitWindow.windowLevel,
-              sdlUIKitWindow,
-              sdlUIKitWindow.rootViewController);
     };
     if ( [NSThread isMainThread] ) {
         visibilityBlock();

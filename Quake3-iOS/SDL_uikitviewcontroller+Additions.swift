@@ -238,9 +238,7 @@ fileprivate final class PauseChoiceViewController: UIViewController {
             button.layer.borderColor = UIColor.red.withAlphaComponent(0.8).cgColor
         }
         let target = PauseMenuButtonTarget { [weak self] in
-            NSLog("[Q3Quit] PauseChoice button tapped title=%@", choice.title)
             self?.dismiss(animated: false) {
-                NSLog("[Q3Quit] PauseChoice dismissed title=%@; running action", choice.title)
                 choice.action()
             }
         }
@@ -1328,41 +1326,6 @@ extension SDL_uikitviewcontroller {
         return String(cString: buffer)
     }
 
-    private func quitLog(_ message: String) {
-        NSLog("[Q3Quit] %@", message)
-    }
-
-    private func quitViewControllerName(_ viewController: UIViewController?) -> String {
-        guard let viewController = viewController else { return "nil" }
-        return String(describing: type(of: viewController))
-    }
-
-    private func quitWindowDescription(_ window: UIWindow?) -> String {
-        guard let window = window else { return "nil" }
-        return "hidden=\(window.isHidden) key=\(window.isKeyWindow) interactive=\(window.isUserInteractionEnabled) level=\(window.windowLevel.rawValue) frame=\(window.frame)"
-    }
-
-    private func quitNavigationDescription(_ navigationController: UINavigationController) -> String {
-        let stack = navigationController.viewControllers.map { quitViewControllerName($0) }.joined(separator: " > ")
-        return "stack=[\(stack)] top=\(quitViewControllerName(navigationController.topViewController)) visible=\(quitViewControllerName(navigationController.visibleViewController)) presented=\(quitViewControllerName(navigationController.presentedViewController))"
-    }
-
-    private func quitLogApplicationWindows(_ label: String) {
-        let windows: [UIWindow]
-        if #available(iOS 13.0, *) {
-            windows = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap { $0.windows }
-        } else {
-            windows = UIApplication.shared.windows
-        }
-
-        let description = windows.enumerated().map { index, window in
-            "\(index):\(type(of: window)) \(quitWindowDescription(window)) root=\(quitViewControllerName(window.rootViewController))"
-        }.joined(separator: " | ")
-        quitLog("\(label) windows=\(description)")
-    }
-
     private enum QuitReturnTarget {
         case mainMenu
         case arenaSelection
@@ -1371,12 +1334,9 @@ extension SDL_uikitviewcontroller {
 
     private func replaceRootNavigationStack(target: QuitReturnTarget, app: AppDelegate) {
         Sys_SetIOSMainLoopPaused(qboolean(1))
-        quitLog("replaceRootNavigationStack requested iOS main loop pause")
-        quitLogApplicationWindows("replaceRootNavigationStack before")
 
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         guard let navigationController = storyboard.instantiateViewController(withIdentifier: "RootNC") as? UINavigationController else {
-            quitLog("replaceRootNavigationStack failed: RootNC missing")
             return
         }
 
@@ -1386,14 +1346,12 @@ extension SDL_uikitviewcontroller {
         case .arenaSelection:
             guard let mainMenuVC = storyboard.instantiateViewController(withIdentifier: "MainMenuViewController") as? MainMenuViewController,
                   let tiersVC = storyboard.instantiateViewController(withIdentifier: "TiersListViewController") as? TiersListViewController else {
-                quitLog("replaceRootNavigationStack failed: arena controllers missing")
                 return
             }
             navigationController.setViewControllers([mainMenuVC, tiersVC], animated: false)
         case .botMatch:
             guard let mainMenuVC = storyboard.instantiateViewController(withIdentifier: "MainMenuViewController") as? MainMenuViewController,
                   let botMatchVC = storyboard.instantiateViewController(withIdentifier: "BotMatchViewController") as? BotMatchViewController else {
-                quitLog("replaceRootNavigationStack failed: bot match controllers missing")
                 return
             }
             botMatchVC.selectedMap = GameSession.map.isEmpty ? botMatchVC.selectedMap : GameSession.map
@@ -1404,7 +1362,6 @@ extension SDL_uikitviewcontroller {
             navigationController.setViewControllers([mainMenuVC, botMatchVC], animated: false)
         }
 
-        quitLog("replaceRootNavigationStack target=\(target) newNav=\(quitNavigationDescription(navigationController))")
         navigationController.view.isUserInteractionEnabled = true
         app.rootNavigationController = navigationController
         app.uiwindow.rootViewController = navigationController
@@ -1417,87 +1374,66 @@ extension SDL_uikitviewcontroller {
         navigationController.view.isUserInteractionEnabled = true
         navigationController.view.setNeedsLayout()
         navigationController.view.layoutIfNeeded()
-        quitLogApplicationWindows("replaceRootNavigationStack after")
-        quitLog("replaceRootNavigationStack end appWindow=\(quitWindowDescription(app.uiwindow)) newNav=\(quitNavigationDescription(navigationController))")
     }
 
     private func returnToArenaSelection() {
-        quitLog("returnToArenaSelection begin main=\(Thread.isMainThread) pauseOpen=\(CL_IsPauseMenuOpen()) selfWindow=\(quitWindowDescription(view.window))")
         closePauseMenuAndQueueDisconnect()
 
         guard let app = UIApplication.shared.delegate as? AppDelegate,
               let navigationController = app.rootNavigationController else {
-            quitLog("returnToArenaSelection missing app/nav; posting notification fallback")
             NotificationCenter.default.post(name: .quakeReturnToArenaSelection, object: nil)
             return
         }
-        quitLog("returnToArenaSelection before navigate appWindow=\(quitWindowDescription(app.uiwindow)) nav=\(quitNavigationDescription(navigationController))")
 
         let navigate = {
-            self.quitLog("returnToArenaSelection navigate start nav=\(self.quitNavigationDescription(navigationController))")
             let target: QuitReturnTarget = GameSession.botMatch ? .botMatch : .arenaSelection
             self.replaceRootNavigationStack(target: target, app: app)
-            self.quitLog("returnToArenaSelection end appWindow=\(self.quitWindowDescription(app.uiwindow)) selfWindow=\(self.quitWindowDescription(self.view.window))")
         }
 
         if let presented = navigationController.presentedViewController {
-            quitLog("returnToArenaSelection dismissing presented=\(quitViewControllerName(presented))")
             presented.dismiss(animated: false, completion: navigate)
         } else {
-            quitLog("returnToArenaSelection no presented controller")
             navigate()
         }
     }
 
     private func returnToMainMenu() {
-        quitLog("returnToMainMenu begin main=\(Thread.isMainThread) pauseOpen=\(CL_IsPauseMenuOpen()) selfWindow=\(quitWindowDescription(view.window))")
         closePauseMenuAndQueueDisconnect()
 
         guard let app = UIApplication.shared.delegate as? AppDelegate,
               let navigationController = app.rootNavigationController else {
-            quitLog("returnToMainMenu missing app/nav; posting notification fallback")
             NotificationCenter.default.post(name: .quakeReturnToMainMenu, object: nil)
             return
         }
-        quitLog("returnToMainMenu before navigate appWindow=\(quitWindowDescription(app.uiwindow)) nav=\(quitNavigationDescription(navigationController))")
 
         let navigate = {
-            self.quitLog("returnToMainMenu navigate start nav=\(self.quitNavigationDescription(navigationController))")
             self.replaceRootNavigationStack(target: .mainMenu, app: app)
-            self.quitLog("returnToMainMenu end appWindow=\(self.quitWindowDescription(app.uiwindow)) selfWindow=\(self.quitWindowDescription(self.view.window))")
         }
 
         if let presented = navigationController.presentedViewController {
-            quitLog("returnToMainMenu dismissing presented=\(quitViewControllerName(presented))")
             presented.dismiss(animated: false, completion: navigate)
         } else {
-            quitLog("returnToMainMenu no presented controller")
             navigate()
         }
     }
 
     private func popNavigationStack(on navigationController: UINavigationController, to target: UIViewController) {
         let popped = navigationController.popToViewController(target, animated: false) ?? []
-        quitLog("popNavigationStack target=\(quitViewControllerName(target)) popped=[\(popped.map { quitViewControllerName($0) }.joined(separator: " > "))] nav=\(quitNavigationDescription(navigationController))")
+        _ = popped
         guard navigationController.topViewController !== target else { return }
-        quitLog("popNavigationStack target not top after pop; forcing setViewControllers")
         setNavigationStack(on: navigationController, through: target)
     }
 
     private func setNavigationStack(on navigationController: UINavigationController, through target: UIViewController) {
         guard let index = navigationController.viewControllers.firstIndex(of: target) else { return }
         let stack = Array(navigationController.viewControllers.prefix(through: index))
-        quitLog("setNavigationStack target=\(quitViewControllerName(target)) index=\(index) newStack=[\(stack.map { quitViewControllerName($0) }.joined(separator: " > "))]")
         navigationController.setViewControllers(stack, animated: false)
         navigationController.view.setNeedsLayout()
         navigationController.view.layoutIfNeeded()
-        quitLog("setNavigationStack after force nav=\(quitNavigationDescription(navigationController))")
     }
 
     private func foregroundAppWindow(_ window: UIWindow) {
-        quitLog("foregroundAppWindow begin appWindow=\(quitWindowDescription(window)) selfWindow=\(quitWindowDescription(view.window)) selfViewHidden=\(view.isHidden)")
         InGameNativeUI.deactivate()
-        quitLog("foregroundAppWindow after InGameNativeUI.deactivate selfWindow=\(quitWindowDescription(view.window))")
         let sdlWindowLevel = view.window?.windowLevel.rawValue ?? UIWindow.Level.normal.rawValue
         window.windowLevel = UIWindow.Level(rawValue: max(UIWindow.Level.alert.rawValue + 2, sdlWindowLevel + 2))
         window.isHidden = false
@@ -1506,21 +1442,16 @@ extension SDL_uikitviewcontroller {
         window.makeKeyAndVisible()
         window.rootViewController?.view.setNeedsLayout()
         window.rootViewController?.view.layoutIfNeeded()
-        quitLog("foregroundAppWindow end appWindow=\(quitWindowDescription(window)) selfWindow=\(quitWindowDescription(view.window)) selfViewHidden=\(view.isHidden)")
     }
 
     private func backgroundSDLWindow() {
-        quitLog("backgroundSDLWindow begin selfWindow=\(quitWindowDescription(view.window)) selfViewHidden=\(view.isHidden)")
         let sdlWindow = view.window
         sdlWindow?.isUserInteractionEnabled = false
         view.isHidden = false
-        quitLog("backgroundSDLWindow end selfWindow=\(quitWindowDescription(view.window)) selfViewHidden=\(view.isHidden)")
     }
 
     private func closePauseMenuAndQueueDisconnect() {
-        quitLog("closePauseMenuAndQueueDisconnect before pauseOpen=\(CL_IsPauseMenuOpen())")
         CL_ClosePauseMenu()
-        quitLog("closePauseMenuAndQueueDisconnect after close pauseOpen=\(CL_IsPauseMenuOpen()); queue disconnect")
         Cbuf_AddText("disconnect\n")
     }
 
@@ -1595,19 +1526,15 @@ extension SDL_uikitviewcontroller {
     }
 
     @objc func pauseLeaveTapped() {
-        quitLog("pauseLeaveTapped present confirmation")
         presentPauseConfirmation(title: "Quitter l'arène ?", confirmTitle: "Quitter") { [weak self] in
             guard let self = self else { return }
-            self.quitLog("pauseLeave confirm action")
             self.returnToArenaSelection()
         }
     }
 
     @objc func pauseExitGameTapped() {
-        quitLog("pauseExitGameTapped present confirmation")
         presentPauseConfirmation(title: "Quitter le jeu ?", confirmTitle: "Quitter") { [weak self] in
             guard let self = self else { return }
-            self.quitLog("pauseExitGame confirm action")
             self.returnToMainMenu()
         }
     }
