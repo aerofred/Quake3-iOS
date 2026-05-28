@@ -531,13 +531,25 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" translatesAutoresizingMaskIntoConstraints="NO" id="rso-ux-2dW">
-                                <rect key="frame" x="20" y="20" width="528" height="240"/>
+                                <rect key="frame" x="20" y="62" width="528" height="198"/>
                                 <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <connections>
                                     <outlet property="dataSource" destination="gOE-px-5yC" id="FCr-eb-EYo"/>
                                     <outlet property="delegate" destination="gOE-px-5yC" id="d55-EA-Fpt"/>
                                 </connections>
                             </tableView>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="dlf-VL-Tmy">
+                                <rect key="frame" x="20" y="5.5" width="73" height="51"/>
+                                <fontDescription key="fontDescription" name="AvenirNext-Bold" family="Avenir Next" pointSize="28"/>
+                                <size key="titleShadowOffset" width="1" height="1"/>
+                                <state key="normal" title="BACK">
+                                    <color key="titleColor" red="1" green="0.0093617555430000002" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                    <color key="titleShadowColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </state>
+                                <connections>
+                                    <segue destination="aT5-yS-rzp" kind="unwind" unwindAction="exitToMainMenuWithSegue:" id="m0C-vJ-Sa8"/>
+                                </connections>
+                            </button>
                             <button hidden="YES" opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="OlM-0b-IFw">
                                 <rect key="frame" x="463" y="268" width="85" height="51"/>
                                 <fontDescription key="fontDescription" name="AvenirNext-Bold" family="Avenir Next" pointSize="28"/>
@@ -592,6 +604,7 @@
                         <constraints>
                             <constraint firstItem="Bq1-aI-fE7" firstAttribute="bottom" secondItem="rso-ux-2dW" secondAttribute="bottom" constant="60" id="3FB-OF-d97"/>
                             <constraint firstItem="xcQ-ut-mNp" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="53K-Kb-nZQ" secondAttribute="leading" constant="20" symbolic="YES" id="COs-fQ-Ieg"/>
+                            <constraint firstItem="dlf-VL-Tmy" firstAttribute="leading" secondItem="Bq1-aI-fE7" secondAttribute="leading" constant="20" id="Gyr-QD-uCA"/>
                             <constraint firstItem="rso-ux-2dW" firstAttribute="leading" secondItem="Bq1-aI-fE7" secondAttribute="leading" constant="20" id="Hxp-du-q9g"/>
                             <constraint firstItem="0ni-l6-EF9" firstAttribute="leading" secondItem="Bq1-aI-fE7" secondAttribute="leading" constant="20" id="L0V-Zi-yyT"/>
                             <constraint firstItem="Bq1-aI-fE7" firstAttribute="trailing" secondItem="rso-ux-2dW" secondAttribute="trailing" constant="20" id="Luc-s6-ReS"/>
@@ -600,8 +613,9 @@
                             <constraint firstItem="xcQ-ut-mNp" firstAttribute="centerY" secondItem="OlM-0b-IFw" secondAttribute="centerY" id="dgn-gD-JVz"/>
                             <constraint firstItem="OlM-0b-IFw" firstAttribute="leading" secondItem="xcQ-ut-mNp" secondAttribute="trailing" constant="20" id="e6C-14-n5a"/>
                             <constraint firstItem="OlM-0b-IFw" firstAttribute="trailing" secondItem="rso-ux-2dW" secondAttribute="trailing" id="qZD-Zn-ybC"/>
+                            <constraint firstItem="dlf-VL-Tmy" firstAttribute="top" secondItem="Bq1-aI-fE7" secondAttribute="top" constant="6" id="rbz-Lt-OyS"/>
                             <constraint firstItem="Bq1-aI-fE7" firstAttribute="bottom" secondItem="0ni-l6-EF9" secondAttribute="bottom" constant="10" id="uR1-hK-NYA"/>
-                            <constraint firstItem="rso-ux-2dW" firstAttribute="top" secondItem="Bq1-aI-fE7" secondAttribute="top" constant="20" id="vWy-ZK-4AV"/>
+                            <constraint firstItem="rso-ux-2dW" firstAttribute="top" secondItem="Bq1-aI-fE7" secondAttribute="top" constant="62" id="vWy-ZK-4AV"/>
                         </constraints>
                     </view>
                     <navigationItem key="navigationItem" id="0Wy-Jd-Ckc"/>
@@ -616,6 +630,7 @@
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="kKs-My-AiO" userLabel="First Responder" sceneMemberID="firstResponder"/>
+                <exit id="aT5-yS-rzp" userLabel="Exit" sceneMemberID="exit"/>
             </objects>
             <point key="canvasLocation" x="953.97301349325346" y="1072.8"/>
         </scene>

@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Darwin
 
 fileprivate final class PauseMenuViewController: UIViewController {
     weak var gameController: SDL_uikitviewcontroller?
@@ -1366,7 +1367,60 @@ extension SDL_uikitviewcontroller {
     private func pauseServerInfoText() -> String {
         var buffer = [CChar](repeating: 0, count: 512)
         CL_BuildServerInfo(&buffer, Int32(buffer.count))
-        return String(cString: buffer)
+        var lines = [String(cString: buffer)]
+
+        lines.append("IP locale : \(localIPAddress() ?? "indisponible")")
+
+        var serverBuffer = [CChar](repeating: 0, count: 128)
+        CL_GetConnectedServerAddress(&serverBuffer, Int32(serverBuffer.count))
+        let serverAddress = String(cString: serverBuffer)
+        if !serverAddress.isEmpty {
+            lines.append("IP serveur : \(serverAddress)")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func localIPAddress() -> String? {
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&interfaces) == 0 else { return nil }
+        defer { freeifaddrs(interfaces) }
+
+        var fallbackAddress: String?
+        var pointer = interfaces
+        while pointer != nil {
+            guard let interface = pointer?.pointee,
+                  interface.ifa_addr.pointee.sa_family == UInt8(AF_INET) else {
+                pointer = pointer?.pointee.ifa_next
+                continue
+            }
+
+            let name = String(cString: interface.ifa_name)
+            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            let result = getnameinfo(
+                interface.ifa_addr,
+                socklen_t(interface.ifa_addr.pointee.sa_len),
+                &hostname,
+                socklen_t(hostname.count),
+                nil,
+                0,
+                NI_NUMERICHOST
+            )
+
+            if result == 0 {
+                let address = String(cString: hostname)
+                if name == "en0" {
+                    return address
+                }
+                if name != "lo0" && fallbackAddress == nil {
+                    fallbackAddress = address
+                }
+            }
+
+            pointer = pointer?.pointee.ifa_next
+        }
+
+        return fallbackAddress
     }
 
     private enum QuitReturnTarget {

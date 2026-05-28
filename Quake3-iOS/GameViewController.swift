@@ -20,6 +20,7 @@ class GameViewController: UIViewController {
     var selectedServer: Server?
     var selectedDifficulty = 0
     var botMatch = false
+    var hostMultiplayer = false
     var botSkill: Float = 3
     var timeLimit = 0
     var fragLimit = 20
@@ -113,6 +114,7 @@ class GameViewController: UIViewController {
         selectedMap = GameSession.map
         selectedDifficulty = GameSession.difficulty
         botMatch = GameSession.botMatch
+        hostMultiplayer = GameSession.hostMultiplayer
         botSkill = GameSession.botSkill
         bots = GameSession.bots
         fragLimit = GameSession.fragLimit
@@ -204,6 +206,15 @@ class GameViewController: UIViewController {
             scheduleBotCommands(delay: 4.0)
             Cbuf_AddText("set timelimit \(timeLimit)\n")
             Cbuf_AddText("set fraglimit \(fragLimit)\n")
+        } else if hostMultiplayer {
+            Cbuf_AddText("set sv_pure 0\n")
+            Cbuf_AddText("set bot_enable 0\n")
+            Cbuf_AddText("set sv_maxclients 8\n")
+            Cbuf_AddText("set ui_singlePlayerActive 0\n")
+            Cbuf_AddText("set singleplayer 0\n")
+            Cbuf_AddText("set g_gametype 0\n")
+            Cbuf_AddText("set sv_hostname \"Quake3 iOS Host\"\n")
+            Cbuf_AddText("map \(mapName)\n")
         } else if selectedServer == nil {
             let skill = clampedSinglePlayerSkill()
             Cbuf_AddText("set sv_pure 0\n")
@@ -237,6 +248,17 @@ class GameViewController: UIViewController {
                 "+set", "timelimit", String(timeLimit),
                 "+set", "fraglimit", String(fragLimit)
             ])
+        } else if hostMultiplayer {
+            argv.append(contentsOf: [
+                "+set", "sv_pure", "0",
+                "+set", "bot_enable", "0",
+                "+set", "sv_maxclients", "8",
+                "+set", "ui_singlePlayerActive", "0",
+                "+set", "singleplayer", "0",
+                "+set", "g_gametype", "0",
+                "+set", "sv_hostname", "Quake3 iOS Host",
+                "+map", mapName
+            ])
         } else if selectedServer == nil {
             // Même chemin que Bot Match (+map) : +spmap laissait le client sur le menu Quake.
             let skill = clampedSinglePlayerSkill()
@@ -255,7 +277,7 @@ class GameViewController: UIViewController {
     }
 
     private func scheduleInitialBotCommandsIfNeeded(mapName: String) {
-        guard selectedServer == nil, !mapName.isEmpty else { return }
+        guard selectedServer == nil, !hostMultiplayer, !mapName.isEmpty else { return }
         let overrideSkill = botMatch ? nil : clampedSinglePlayerSkill()
         scheduleBotCommands(delay: 8.0, overrideSkill: overrideSkill)
     }

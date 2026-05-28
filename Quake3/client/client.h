@@ -663,6 +663,7 @@ void CL_SendTeamOrder( const char *message );
 int CL_CanManageBots( void );
 int CL_CanUseTeamOrders( void );
 void CL_BuildServerInfo( char *buf, int bufsize );
+void CL_GetConnectedServerAddress( char *out, int outSize );
 void CL_AddBotCommand( const char *name, int skill );
 void CL_QueueAddBotCommand( const char *name, int skill );
 void CL_FlushQueuedAddBotCommands( void );

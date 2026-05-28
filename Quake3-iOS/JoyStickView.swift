@@ -235,6 +235,13 @@ public final class JoyStickView: UIView {
         } else {
             updateLocationFixed(location: bounds.mid)
         }
+
+        angle = 0.0
+        displacement = 0.0
+        lastAngleRadians = 0.0
+        handleImageView.center = bounds.mid
+        delegate?.handleJoyStick(angle: 0.0, displacement: 0.0)
+        delegate?.handleJoyStickPosition(x: 0.0, y: 0.0)
     }
 
     /// Fixed-base joystick: finger position is in this view's coordinates.

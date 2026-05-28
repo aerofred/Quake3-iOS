@@ -566,6 +566,19 @@ void CL_BuildServerInfo( char *buf, int bufsize ) {
 		maxclients > 0 ? maxclients : MAX_CLIENTS );
 }
 
+void CL_GetConnectedServerAddress( char *out, int outSize ) {
+	if ( !out || outSize < 1 ) {
+		return;
+	}
+
+	out[0] = '\0';
+	if ( clc.state < CA_CONNECTED || clc.demoplaying ) {
+		return;
+	}
+
+	Q_strncpyz( out, NET_AdrToStringwPort( clc.serverAddress ), outSize );
+}
+
 void CL_AddBotCommand( const char *name, int skill ) {
 	char cmd[MAX_STRING_CHARS];
 

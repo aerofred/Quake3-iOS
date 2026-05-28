@@ -82,6 +82,7 @@ void CL_SendTeamOrder( const char *message );
 int CL_CanManageBots( void );
 int CL_CanUseTeamOrders( void );
 void CL_BuildServerInfo( char *buf, int bufsize );
+void CL_GetConnectedServerAddress( char *out, int outSize );
 void CL_KickBotByName( const char *name );
 int CL_ConnectedBotCount( void );
 int CL_ConnectedBotName( int index, char *out, int outSize );
