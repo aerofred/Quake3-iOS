@@ -615,7 +615,6 @@ SERVER OPTIONS MENU *****
 
 #define ID_PLAYER_TYPE			20
 #define ID_MAXCLIENTS			21
-#define ID_DEDICATED			22
 #define ID_GO					23
 #define ID_BACK					24
 
@@ -630,7 +629,6 @@ typedef struct {
 	menubitmap_s		mappic;
 	menubitmap_s		picframe;
 
-	menulist_s			dedicated;
 	menufield_s			timelimit;
 	menufield_s			fraglimit;
 	menufield_s			flaglimit;
@@ -661,13 +659,6 @@ typedef struct {
 } serveroptions_t;
 
 static serveroptions_t s_serveroptions;
-
-static const char *dedicated_list[] = {
-	"No",
-	"LAN",
-	"Internet",
-	NULL
-};
 
 static const char *playerType_list[] = {
 	"Open",
@@ -726,7 +717,6 @@ static void ServerOptions_Start( void ) {
 	int		timelimit;
 	int		fraglimit;
 	int		maxclients;
-	int		dedicated;
 	int		friendlyfire;
 	int		flaglimit;
 	int		pure;
@@ -738,7 +728,6 @@ static void ServerOptions_Start( void ) {
 	timelimit	 = atoi( s_serveroptions.timelimit.field.buffer );
 	fraglimit	 = atoi( s_serveroptions.fraglimit.field.buffer );
 	flaglimit	 = atoi( s_serveroptions.flaglimit.field.buffer );
-	dedicated	 = s_serveroptions.dedicated.curvalue;
 	friendlyfire = s_serveroptions.friendlyfire.curvalue;
 	pure		 = s_serveroptions.pure.curvalue;
 	skill		 = s_serveroptions.botSkill.curvalue + 1;
@@ -780,7 +769,7 @@ static void ServerOptions_Start( void ) {
 	}
 
 	trap_Cvar_SetValue( "sv_maxclients", Com_Clamp( 0, 12, maxclients ) );
-	trap_Cvar_SetValue( "dedicated", Com_Clamp( 0, 2, dedicated ) );
+	trap_Cvar_SetValue( "dedicated", 0 );
 	trap_Cvar_SetValue ("timelimit", Com_Clamp( 0, timelimit, timelimit ) );
 	trap_Cvar_SetValue ("fraglimit", Com_Clamp( 0, fraglimit, fraglimit ) );
 	trap_Cvar_SetValue ("capturelimit", Com_Clamp( 0, flaglimit, flaglimit ) );
@@ -790,7 +779,7 @@ static void ServerOptions_Start( void ) {
 	
 	trap_Cvar_SetValue( "sv_punkbuster", s_serveroptions.punkbuster.curvalue );
 
-	// the wait commands will allow the dedicated to take effect
+	// the wait commands allow the server cvars to settle before loading the map
 	info = UI_GetArenaInfoByNumber( s_startserver.maplist[ s_startserver.currentmap ]);
 	trap_Cmd_ExecuteText( EXEC_APPEND, va( "wait ; wait ; map %s\n", Info_ValueForKey( info, "map" )));
 
@@ -817,7 +806,7 @@ static void ServerOptions_Start( void ) {
 	}
 
 	// set player's team
-	if( dedicated == 0 && s_serveroptions.gametype >= GT_TEAM ) {
+	if( s_serveroptions.gametype >= GT_TEAM ) {
 		// send team command for vanilla q3 game qvm
 		trap_Cmd_ExecuteText( EXEC_APPEND, va( "wait 5; team %s\n", playerTeam_list[s_serveroptions.playerTeam[0].curvalue] ) );
 
@@ -854,14 +843,11 @@ static void ServerOptions_InitPlayerItems( void ) {
 		}
 	}
 
-	// if not a dedicated server, first slot is reserved for the human on the server
-	if( s_serveroptions.dedicated.curvalue == 0 ) {
-		// human
-		s_serveroptions.playerType[0].generic.flags |= QMF_INACTIVE;
-		s_serveroptions.playerType[0].curvalue = 0;
-		trap_Cvar_VariableStringBuffer( "name", s_serveroptions.playerNameBuffers[0], sizeof(s_serveroptions.playerNameBuffers[0]) );
-		Q_CleanStr( s_serveroptions.playerNameBuffers[0] );
-	}
+	// the listen host always occupies the first slot
+	s_serveroptions.playerType[0].generic.flags |= QMF_INACTIVE;
+	s_serveroptions.playerType[0].curvalue = 0;
+	trap_Cvar_VariableStringBuffer( "name", s_serveroptions.playerNameBuffers[0], sizeof(s_serveroptions.playerNameBuffers[0]) );
+	Q_CleanStr( s_serveroptions.playerNameBuffers[0] );
 
 	// init teams
 	if( s_serveroptions.gametype >= GT_TEAM ) {
@@ -897,16 +883,9 @@ static void ServerOptions_SetPlayerItems( void ) {
 //	}
 
 	// names
-	if( s_serveroptions.dedicated.curvalue == 0 ) {
-		s_serveroptions.player0.string = "Human";
-		s_serveroptions.playerName[0].generic.flags &= ~QMF_HIDDEN;
-
-		start = 1;
-	}
-	else {
-		s_serveroptions.player0.string = "Open";
-		start = 0;
-	}
+	s_serveroptions.player0.string = "Human";
+	s_serveroptions.playerName[0].generic.flags &= ~QMF_HIDDEN;
+	start = 1;
 	for( n = start; n < PLAYER_SLOTS; n++ ) {
 		if( s_serveroptions.playerType[n].curvalue == 1 ) {
 			s_serveroptions.playerName[n].generic.flags &= ~(QMF_INACTIVE|QMF_HIDDEN);
@@ -950,7 +929,6 @@ static void ServerOptions_Event( void* ptr, int event ) {
 		break;
 
 	case ID_MAXCLIENTS:
-	case ID_DEDICATED:
 		ServerOptions_SetPlayerItems();
 		break;
 	case ID_GO:
@@ -1329,18 +1307,6 @@ static void ServerOptions_MenuInit( qboolean multiplayer ) {
 
 	if( s_serveroptions.multiplayer ) {
 		y += BIGCHAR_HEIGHT+2;
-		s_serveroptions.dedicated.generic.type		= MTYPE_SPINCONTROL;
-		s_serveroptions.dedicated.generic.id		= ID_DEDICATED;
-		s_serveroptions.dedicated.generic.flags		= QMF_PULSEIFFOCUS|QMF_SMALLFONT;
-		s_serveroptions.dedicated.generic.callback	= ServerOptions_Event;
-		s_serveroptions.dedicated.generic.x			= OPTIONS_X;
-		s_serveroptions.dedicated.generic.y			= y;
-		s_serveroptions.dedicated.generic.name		= "Dedicated:";
-		s_serveroptions.dedicated.itemnames			= dedicated_list;
-	}
-
-	if( s_serveroptions.multiplayer ) {
-		y += BIGCHAR_HEIGHT+2;
 		s_serveroptions.hostname.generic.type       = MTYPE_FIELD;
 		s_serveroptions.hostname.generic.name       = "Hostname:";
 		s_serveroptions.hostname.generic.flags      = QMF_SMALLFONT;
@@ -1471,9 +1437,6 @@ static void ServerOptions_MenuInit( qboolean multiplayer ) {
 		Menu_AddItem( &s_serveroptions.menu, &s_serveroptions.friendlyfire );
 	}
 	Menu_AddItem( &s_serveroptions.menu, &s_serveroptions.pure );
-	if( s_serveroptions.multiplayer ) {
-		Menu_AddItem( &s_serveroptions.menu, &s_serveroptions.dedicated );
-	}
 	if( s_serveroptions.multiplayer ) {
 		Menu_AddItem( &s_serveroptions.menu, &s_serveroptions.hostname );
 	}

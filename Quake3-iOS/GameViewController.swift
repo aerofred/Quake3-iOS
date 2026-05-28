@@ -319,6 +319,8 @@ class GameViewController: UIViewController {
             "+set", "cl_run", "1",
             "+set", "j_yaw", "1",
             "+set", "sensitivity", "10",
+            "+set", "touch_move_sensitivity", touchSensitivityValue(forKey: "touchMoveSensitivity", defaultValue: 1.0),
+            "+set", "touch_look_sensitivity", touchSensitivityValue(forKey: "touchLookSensitivity", defaultValue: 1.0),
             "+bind", "PAD0_RIGHTTRIGGER", "\"+attack\"",
             "+bind", "PAD0_LEFTSTICK_UP", "\"+forward\"",
             "+bind", "PAD0_LEFTSTICK_DOWN", "\"+back\"",
@@ -336,6 +338,11 @@ class GameViewController: UIViewController {
         #if DEBUG
         argv.append(contentsOf: ["+set", "developer", "1"])
         #endif
+    }
+
+    private func touchSensitivityValue(forKey key: String, defaultValue: Double) -> String {
+        let value = defaults.object(forKey: key) == nil ? defaultValue : defaults.double(forKey: key)
+        return String(format: "%.3f", max(0.25, min(3.0, value)))
     }
 
     private func presentMapAlert(title: String, message: String) {

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	Enable this once Apple has approved Multicast Networking for the bundle ID
+	and the provisioning profile includes the capability.
+
+	<key>com.apple.developer.networking.multicast</key>
+	<true/>
+	-->
+</dict>
+</plist>

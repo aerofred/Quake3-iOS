@@ -40,6 +40,8 @@ SYSTEM CONFIGURATION MENU
 #define ID_SOUND			12
 #define ID_NETWORK			13
 #define ID_BACK				14
+#define ID_TOUCHMOVESENSITIVITY	15
+#define ID_TOUCHLOOKSENSITIVITY	16
 
 #define VERTICAL_SPACING	34
 
@@ -54,6 +56,8 @@ typedef struct {
 	menutext_s		display;
 	menutext_s		sound;
 	menutext_s		network;
+	menuslider_s	touchmovesensitivity;
+	menuslider_s	touchlooksensitivity;
 	menubitmap_s	back;
 } optionsmenu_t;
 
@@ -85,6 +89,14 @@ static void Options_Event( void* ptr, int event ) {
 
 	case ID_NETWORK:
 		UI_NetworkOptionsMenu();
+		break;
+
+	case ID_TOUCHMOVESENSITIVITY:
+		trap_Cvar_SetValue( "touch_move_sensitivity", s_options.touchmovesensitivity.curvalue );
+		break;
+
+	case ID_TOUCHLOOKSENSITIVITY:
+		trap_Cvar_SetValue( "touch_look_sensitivity", s_options.touchlooksensitivity.curvalue );
 		break;
 
 	case ID_BACK:
@@ -196,6 +208,28 @@ void Options_MenuInit( void ) {
 	s_options.network.color				= color_red;
 	s_options.network.style				= UI_CENTER;
 
+	y += VERTICAL_SPACING;
+	s_options.touchmovesensitivity.generic.type		= MTYPE_SLIDER;
+	s_options.touchmovesensitivity.generic.name		= "Move Joystick Sensitivity:";
+	s_options.touchmovesensitivity.generic.flags		= QMF_PULSEIFFOCUS|QMF_SMALLFONT;
+	s_options.touchmovesensitivity.generic.callback	= Options_Event;
+	s_options.touchmovesensitivity.generic.id		= ID_TOUCHMOVESENSITIVITY;
+	s_options.touchmovesensitivity.generic.x			= 400;
+	s_options.touchmovesensitivity.generic.y			= y;
+	s_options.touchmovesensitivity.minvalue			= 0.25f;
+	s_options.touchmovesensitivity.maxvalue			= 3.0f;
+
+	y += VERTICAL_SPACING;
+	s_options.touchlooksensitivity.generic.type		= MTYPE_SLIDER;
+	s_options.touchlooksensitivity.generic.name		= "Look Button Sensitivity:";
+	s_options.touchlooksensitivity.generic.flags		= QMF_PULSEIFFOCUS|QMF_SMALLFONT;
+	s_options.touchlooksensitivity.generic.callback	= Options_Event;
+	s_options.touchlooksensitivity.generic.id		= ID_TOUCHLOOKSENSITIVITY;
+	s_options.touchlooksensitivity.generic.x			= 400;
+	s_options.touchlooksensitivity.generic.y			= y;
+	s_options.touchlooksensitivity.minvalue			= 0.25f;
+	s_options.touchlooksensitivity.maxvalue			= 3.0f;
+
 	s_options.back.generic.type	    = MTYPE_BITMAP;
 	s_options.back.generic.name     = ART_BACK0;
 	s_options.back.generic.flags    = QMF_LEFT_JUSTIFY|QMF_PULSEIFFOCUS;
@@ -214,7 +248,12 @@ void Options_MenuInit( void ) {
 	Menu_AddItem( &s_options.menu, ( void * ) &s_options.display );
 	Menu_AddItem( &s_options.menu, ( void * ) &s_options.sound );
 	Menu_AddItem( &s_options.menu, ( void * ) &s_options.network );
+	Menu_AddItem( &s_options.menu, ( void * ) &s_options.touchmovesensitivity );
+	Menu_AddItem( &s_options.menu, ( void * ) &s_options.touchlooksensitivity );
 	Menu_AddItem( &s_options.menu, ( void * ) &s_options.back );
+
+	s_options.touchmovesensitivity.curvalue = UI_ClampCvar( 0.25f, 3.0f, trap_Cvar_VariableValue( "touch_move_sensitivity" ) );
+	s_options.touchlooksensitivity.curvalue = UI_ClampCvar( 0.25f, 3.0f, trap_Cvar_VariableValue( "touch_look_sensitivity" ) );
 }
 
 

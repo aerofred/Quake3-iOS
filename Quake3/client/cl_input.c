@@ -430,6 +430,10 @@ int CL_GetCvarInt( const char *name ) {
 	return Cvar_VariableIntegerValue( name );
 }
 
+float CL_GetCvarFloat( const char *name ) {
+	return Cvar_VariableValue( name );
+}
+
 void CL_GetCvarString( const char *name, char *out, int outSize ) {
 	if ( !out || outSize < 1 ) {
 		return;

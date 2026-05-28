@@ -1014,6 +1014,7 @@ int UI_SourceForLAN(void) {
 }
 
 
+
 static const char *handicapValues[] = {"None","95","90","85","80","75","70","65","60","55","50","45","40","35","30","25","20","15","10","5",NULL};
 #ifndef MISSIONPACK
 static int numHandicaps = ARRAY_LEN(handicapValues);
@@ -3169,7 +3170,8 @@ static void UI_RunMenuScript(char **args) {
 			trap_Cvar_Set("cg_thirdPerson", "0");
 			trap_Cvar_Set("cg_cameraOrbit", "0");
 			trap_Cvar_Set("ui_singlePlayerActive", "0");
-			trap_Cvar_SetValue( "dedicated", Com_Clamp( 0, 2, ui_dedicated.integer ) );
+			trap_Cvar_SetValue( "ui_dedicated", 0 );
+			trap_Cvar_SetValue( "dedicated", 0 );
 			trap_Cvar_SetValue( "g_gametype", Com_Clamp( 0, GT_MAX_GAME_TYPE-1, uiInfo.gameTypes[ui_netGameType.integer].gtEnum ) );
 			trap_Cvar_Set("g_redTeam", UI_Cvar_VariableString("ui_teamName"));
 			trap_Cvar_Set("g_blueTeam", UI_Cvar_VariableString("ui_opponentName"));
@@ -6082,4 +6084,3 @@ static void UI_StartServerRefresh(qboolean full, qboolean force)
 		}
 	}
 }
-

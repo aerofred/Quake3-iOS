@@ -10,7 +10,6 @@
 		A144021A23ABEC6E00491C86 /* BotCollectionViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A144021923ABEC6E00491C86 /* BotCollectionViewCell.swift */; };
 		A144021B23ABEC6E00491C86 /* BotCollectionViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A144021923ABEC6E00491C86 /* BotCollectionViewCell.swift */; };
 		A1510399210B7A390087EA86 /* JoyStickView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1510398210B7A390087EA86 /* JoyStickView.swift */; };
-		A1LOOK2505200002 /* LookTouchPad.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LOOK2505200001 /* LookTouchPad.swift */; };
 		A151039C210B7A890087EA86 /* CoreGraphics+Additions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A151039B210B7A890087EA86 /* CoreGraphics+Additions.swift */; };
 		A151039F210D50D50087EA86 /* dpquake.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A151039E210D50D40087EA86 /* dpquake.ttf */; };
 		A15103A1210D50DC0087EA86 /* dpquake.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A151039E210D50D40087EA86 /* dpquake.ttf */; };
@@ -65,9 +64,6 @@
 		A1565F522109F30E00FA9BC9 /* cl_input.c in Sources */ = {isa = PBXBuildFile; fileRef = A179C0D52101471000D3C611 /* cl_input.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A1565F532109F30E00FA9BC9 /* cl_avi.c in Sources */ = {isa = PBXBuildFile; fileRef = A179C0D32101471000D3C611 /* cl_avi.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A1565F542109F30E00FA9BC9 /* GameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A179BFE8210142FA00D3C611 /* GameViewController.swift */; };
-		A1FRED2505200002 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FRED2505200001 /* GameSession.swift */; };
-		A1FRED2505200005 /* MapCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FRED2505200004 /* MapCatalog.swift */; };
-		A1B0TC2505210002 /* BotCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B0TC2505210001 /* BotCatalog.swift */; };
 		A1565F552109F30E00FA9BC9 /* jfdctint.c in Sources */ = {isa = PBXBuildFile; fileRef = A179C06D2101470F00D3C611 /* jfdctint.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A1565F562109F30E00FA9BC9 /* md5.c in Sources */ = {isa = PBXBuildFile; fileRef = A179C2B22101472E00D3C611 /* md5.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A1565F572109F30E00FA9BC9 /* be_aas_main.c in Sources */ = {isa = PBXBuildFile; fileRef = A179C0382101470F00D3C611 /* be_aas_main.c */; settings = {COMPILER_FLAGS = "-w"; }; };
@@ -207,9 +203,6 @@
 		A176FBD9237A2610009DC413 /* sys_ios.m in Sources */ = {isa = PBXBuildFile; fileRef = A176FBD8237A2610009DC413 /* sys_ios.m */; };
 		A176FBDA237A2610009DC413 /* sys_ios.m in Sources */ = {isa = PBXBuildFile; fileRef = A176FBD8237A2610009DC413 /* sys_ios.m */; };
 		A179BFE9210142FA00D3C611 /* GameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A179BFE8210142FA00D3C611 /* GameViewController.swift */; };
-		A1FRED2505200003 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FRED2505200001 /* GameSession.swift */; };
-		A1FRED2505200006 /* MapCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FRED2505200004 /* MapCatalog.swift */; };
-		A1B0TC2505210004 /* BotCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B0TC2505210001 /* BotCatalog.swift */; };
 		A179BFEC210142FA00D3C611 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A179BFEA210142FA00D3C611 /* Main.storyboard */; };
 		A179BFEE210142FB00D3C611 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A179BFED210142FB00D3C611 /* Assets.xcassets */; };
 		A179BFF1210142FB00D3C611 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A179BFEF210142FB00D3C611 /* LaunchScreen.storyboard */; };
@@ -439,6 +432,8 @@
 		A196B7212117F0420031CEB8 /* SupportedGames.swift in Sources */ = {isa = PBXBuildFile; fileRef = A196B6A42115F7C50031CEB8 /* SupportedGames.swift */; };
 		A196B73C2117F0800031CEB8 /* GSCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A196B6942115F7C50031CEB8 /* GSCoordinator.swift */; };
 		A196B7432117FFA30031CEB8 /* ServerFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A196B7422117FFA30031CEB8 /* ServerFilterViewController.swift */; };
+		A1B0TC2505210002 /* BotCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B0TC2505210001 /* BotCatalog.swift */; };
+		A1B0TC2505210004 /* BotCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B0TC2505210001 /* BotCatalog.swift */; };
 		A1CA50FF25A40BB100D72650 /* libsdl2_0_14_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A1CA50FE25A40B9F00D72650 /* libsdl2_0_14_ios.a */; };
 		A1CA510425A40EF000D72650 /* libSDL2_0_14_tvos.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A1CA510325A40EDF00D72650 /* libSDL2_0_14_tvos.a */; };
 		A1CA510825A40F1D00D72650 /* CoreHaptics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1CA510725A40F0B00D72650 /* CoreHaptics.framework */; };
@@ -462,6 +457,11 @@
 		A1E0ECF9236A9F51003F22FB /* sdl_input.c in Sources */ = {isa = PBXBuildFile; fileRef = A1E0ECF1236A9F51003F22FB /* sdl_input.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A1E8B32223714505005C6CA8 /* sdl_glimp.c in Sources */ = {isa = PBXBuildFile; fileRef = A1E0ECEF236A9F51003F22FB /* sdl_glimp.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A1E8B323237234F8005C6CA8 /* sdl_glimp.c in Sources */ = {isa = PBXBuildFile; fileRef = A1E0ECEF236A9F51003F22FB /* sdl_glimp.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		A1FRED2505200002 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FRED2505200001 /* GameSession.swift */; };
+		A1FRED2505200003 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FRED2505200001 /* GameSession.swift */; };
+		A1FRED2505200005 /* MapCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FRED2505200004 /* MapCatalog.swift */; };
+		A1FRED2505200006 /* MapCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FRED2505200004 /* MapCatalog.swift */; };
+		A1LOOK2505200002 /* LookTouchPad.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LOOK2505200001 /* LookTouchPad.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -490,7 +490,6 @@
 /* Begin PBXFileReference section */
 		A144021923ABEC6E00491C86 /* BotCollectionViewCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotCollectionViewCell.swift; sourceTree = "<group>"; };
 		A1510398210B7A390087EA86 /* JoyStickView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoyStickView.swift; sourceTree = "<group>"; };
-		A1LOOK2505200001 /* LookTouchPad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookTouchPad.swift; sourceTree = "<group>"; };
 		A151039B210B7A890087EA86 /* CoreGraphics+Additions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreGraphics+Additions.swift"; sourceTree = "<group>"; };
 		A151039E210D50D40087EA86 /* dpquake.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = dpquake.ttf; sourceTree = "<group>"; };
 		A15103A3210D5DFF0087EA86 /* TiersListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TiersListViewController.swift; sourceTree = "<group>"; };
@@ -513,9 +512,6 @@
 		A176FBD8237A2610009DC413 /* sys_ios.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = sys_ios.m; sourceTree = "<group>"; };
 		A179BFE3210142FA00D3C611 /* Quake3-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Quake3-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A179BFE8210142FA00D3C611 /* GameViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewController.swift; sourceTree = "<group>"; };
-		A1FRED2505200001 /* GameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSession.swift; sourceTree = "<group>"; };
-		A1FRED2505200004 /* MapCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapCatalog.swift; sourceTree = "<group>"; };
-		A1B0TC2505210001 /* BotCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotCatalog.swift; sourceTree = "<group>"; };
 		A179BFEB210142FA00D3C611 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		A179BFED210142FB00D3C611 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A179BFF0210142FB00D3C611 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -810,6 +806,8 @@
 		A196B6FC2117EEFD0031CEB8 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		A196B6FE2117EF0F0031CEB8 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		A196B7422117FFA30031CEB8 /* ServerFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFilterViewController.swift; sourceTree = "<group>"; };
+		A1A1A1A12505260000000001 /* Quake3-iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Quake3-iOS.entitlements"; sourceTree = "<group>"; };
+		A1B0TC2505210001 /* BotCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotCatalog.swift; sourceTree = "<group>"; };
 		A1CA50FE25A40B9F00D72650 /* libsdl2_0_14_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsdl2_0_14_ios.a; path = Quake3/libs/ios/libsdl2_0_14_ios.a; sourceTree = "<group>"; };
 		A1CA510225A40EA800D72650 /* CoreHaptics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreHaptics.framework; path = System/Library/Frameworks/CoreHaptics.framework; sourceTree = SDKROOT; };
 		A1CA510325A40EDF00D72650 /* libSDL2_0_14_tvos.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL2_0_14_tvos.a; path = Quake3/libs/tvos/libSDL2_0_14_tvos.a; sourceTree = "<group>"; };
@@ -826,6 +824,9 @@
 		A1E8B31D23712A37005C6CA8 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		A1E8B3242372397C005C6CA8 /* qgl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = qgl.h; sourceTree = "<group>"; };
 		A1F4032225D22793009B1C92 /* qgles.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = qgles.h; sourceTree = "<group>"; };
+		A1FRED2505200001 /* GameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSession.swift; sourceTree = "<group>"; };
+		A1FRED2505200004 /* MapCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapCatalog.swift; sourceTree = "<group>"; };
+		A1LOOK2505200001 /* LookTouchPad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookTouchPad.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -912,6 +913,7 @@
 				A1FRED2505200004 /* MapCatalog.swift */,
 				A1B0TC2505210001 /* BotCatalog.swift */,
 				A179BFF2210142FB00D3C611 /* Info.plist */,
+				A1A1A1A12505260000000001 /* Quake3-iOS.entitlements */,
 				A1510398210B7A390087EA86 /* JoyStickView.swift */,
 				A1LOOK2505200001 /* LookTouchPad.swift */,
 				A179BFEF210142FB00D3C611 /* LaunchScreen.storyboard */,
@@ -2213,6 +2215,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Quake3-iOS/Quake3-iOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = FP9V6HP6Q2;
 				ENABLE_BITCODE = YES;
@@ -2240,7 +2243,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/Quake3/libs/ios",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tomkiddconsulting.Quake3-iOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.fred.Quake3-iOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Quake3-iOS/bridging.h";
 				SWIFT_VERSION = 5.0;
@@ -2254,6 +2257,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Quake3-iOS/Quake3-iOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = FP9V6HP6Q2;
 				ENABLE_BITCODE = YES;
@@ -2282,7 +2286,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/Quake3/libs/ios",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tomkiddconsulting.Quake3-iOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.fred.Quake3-iOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Quake3-iOS/bridging.h";
 				SWIFT_VERSION = 5.0;

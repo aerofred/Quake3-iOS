@@ -703,6 +703,7 @@ fileprivate enum InGameNativeUI {
 extension Notification.Name {
     static let quakeReturnToMainMenu = Notification.Name("QuakeReturnToMainMenu")
     static let quakeReturnToArenaSelection = Notification.Name("QuakeReturnToArenaSelection")
+    static let quakeTouchControlsChanged = Notification.Name("QuakeTouchControlsChanged")
 }
 
 extension SDL_uikitviewcontroller {
@@ -852,15 +853,51 @@ extension SDL_uikitviewcontroller {
             Holder._controlsInstalled = true
             createOnScreenControlViews()
             applyTouchJoystickCvars()
+            NotificationCenter.default.addObserver(self, selector: #selector(touchControlsChanged), name: .quakeTouchControlsChanged, object: nil)
         }
 
         layoutOnScreenControls(in: view.bounds)
     }
 
     private func applyTouchJoystickCvars() {
+        let defaults = UserDefaults()
+        let moveSensitivity = defaults.object(forKey: "touchMoveSensitivity") == nil ? 1.0 : defaults.double(forKey: "touchMoveSensitivity")
+        let lookSensitivity = defaults.object(forKey: "touchLookSensitivity") == nil ? 1.0 : defaults.double(forKey: "touchLookSensitivity")
+
         CL_ExecuteConsole(
-            "j_yaw_axis 0; j_side_axis 4; j_side 0; j_forward_axis 1; j_forward -2; j_yaw 1; cl_run 1; sensitivity 10\n"
+            "j_yaw_axis 0; j_side_axis 4; j_side 0; j_forward_axis 1; j_forward -2; j_yaw 1; cl_run 1; sensitivity 10; touch_move_sensitivity \(max(0.25, min(3.0, moveSensitivity))); touch_look_sensitivity \(max(0.25, min(3.0, lookSensitivity)))\n"
         )
+    }
+
+    private func clampedTouchCvar(_ name: String, fallback: CGFloat = 1.0) -> CGFloat {
+        let value = CGFloat(CL_GetCvarFloat(name))
+        if value.isFinite && value > 0 {
+            return max(0.25, min(3.0, value))
+        }
+        return fallback
+    }
+
+    private func touchControlOffset(_ keyPrefix: String) -> CGPoint {
+        let defaults = UserDefaults()
+        let x = defaults.object(forKey: "\(keyPrefix)OffsetX") == nil ? 0.0 : defaults.double(forKey: "\(keyPrefix)OffsetX")
+        let y = defaults.object(forKey: "\(keyPrefix)OffsetY") == nil ? 0.0 : defaults.double(forKey: "\(keyPrefix)OffsetY")
+        return CGPoint(
+            x: max(-240.0, min(240.0, x)),
+            y: max(-240.0, min(240.0, y))
+        )
+    }
+
+    private func offsetFrame(_ frame: CGRect, keyPrefix: String, in safeRect: CGRect) -> CGRect {
+        let offset = touchControlOffset(keyPrefix)
+        var adjusted = frame.offsetBy(dx: offset.x, dy: offset.y)
+        adjusted.origin.x = max(safeRect.minX, min(safeRect.maxX - adjusted.width, adjusted.origin.x))
+        adjusted.origin.y = max(safeRect.minY, min(safeRect.maxY - adjusted.height, adjusted.origin.y))
+        return adjusted
+    }
+
+    @objc private func touchControlsChanged() {
+        applyTouchJoystickCvars()
+        layoutOnScreenControls(in: view.bounds)
     }
 
     private func createOnScreenControlViews() {
@@ -883,7 +920,8 @@ extension SDL_uikitviewcontroller {
         lookButton = LookTouchPad(frame: CGRect(x: rect.width - 70, y: rect.height - 70, width: 62, height: 62))
         lookButton.onLookDelta = { dx, dy in
             let t = Int32(Sys_Milliseconds())
-            CL_MouseEvent(Int32(dx * 16.0), Int32(dy * 16.0), t, qboolean(0))
+            let sensitivity = self.clampedTouchCvar("touch_look_sensitivity")
+            CL_MouseEvent(Int32((dx * 8.0 * sensitivity).rounded()), Int32((dy * 8.0 * sensitivity).rounded()), t, qboolean(0))
         }
 
         let joySize = CGSize(width: 100, height: 100)
@@ -971,35 +1009,40 @@ extension SDL_uikitviewcontroller {
         let lookSize: CGFloat = 58
         let stackGap: CGFloat = 10
 
-        joystickView.frame = CGRect(
+        let defaultJoystickFrame = CGRect(
             x: safeRect.minX + 50,
             y: safeRect.maxY - joySize.height - 50,
             width: joySize.width,
             height: joySize.height
         )
+        joystickView.frame = offsetFrame(defaultJoystickFrame, keyPrefix: "touchJoystick", in: safeRect)
 
-        fireButton.frame = CGRect(
+        let defaultFireFrame = CGRect(
             x: safeRect.maxX - 155,
             y: safeRect.maxY - 90,
             width: actionSize,
             height: actionSize
         )
-        jumpButton.frame = CGRect(
+        fireButton.frame = offsetFrame(defaultFireFrame, keyPrefix: "touchFire", in: safeRect)
+
+        let defaultJumpFrame = CGRect(
             x: safeRect.maxX - 90,
             y: safeRect.maxY - 135,
             width: actionSize,
             height: actionSize
         )
+        jumpButton.frame = offsetFrame(defaultJumpFrame, keyPrefix: "touchJump", in: safeRect)
 
-        let clusterMinX = min(fireButton.frame.minX, jumpButton.frame.minX)
-        let clusterMaxX = max(fireButton.frame.maxX, jumpButton.frame.maxX)
-        let clusterMinY = min(fireButton.frame.minY, jumpButton.frame.minY)
-        lookButton.frame = CGRect(
+        let clusterMinX = min(defaultFireFrame.minX, defaultJumpFrame.minX)
+        let clusterMaxX = max(defaultFireFrame.maxX, defaultJumpFrame.maxX)
+        let clusterMinY = min(defaultFireFrame.minY, defaultJumpFrame.minY)
+        let defaultLookFrame = CGRect(
             x: clusterMinX + (clusterMaxX - clusterMinX - lookSize) / 2,
             y: clusterMinY - stackGap - lookSize,
             width: lookSize,
             height: lookSize
         )
+        lookButton.frame = offsetFrame(defaultLookFrame, keyPrefix: "touchLook", in: safeRect)
         escapeButton.frame = CGRect(
             x: safeRect.minX + controlMargin,
             y: safeRect.minY + controlMargin,
@@ -1643,12 +1686,13 @@ extension SDL_uikitviewcontroller: JoystickDelegate {
     func handleJoyStickPosition(x: CGFloat, y: CGFloat) {
         let yaw = applyJoystickResponse(x)
         let forward = applyJoystickResponse(y)
+        let sensitivity = clampedTouchCvar("touch_move_sensitivity")
         let t = Int32(Sys_Milliseconds())
 
         // j_forward=-2, cl_run=1 (see applyTouchJoystickCvars).
-        let forwardScaled = -forward * 127.0 * SDL_uikitviewcontroller.joyMoveGain
+        let forwardScaled = -forward * 127.0 * SDL_uikitviewcontroller.joyMoveGain * sensitivity
         let forwardAxis = Int32(max(-127, min(127, forwardScaled.rounded())))
-        let yawAxis = Int32(-yaw * 127.0)
+        let yawAxis = Int32(max(-127, min(127, (-yaw * 127.0 * sensitivity).rounded())))
 
         CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisYaw), yawAxis, t)
         CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisForward), forwardAxis, t)

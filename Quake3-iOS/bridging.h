@@ -62,6 +62,10 @@ void Cbuf_Execute( void );
 
 int Key_GetCatcher( void );
 
+int CL_GetCvarInt( const char *name );
+float CL_GetCvarFloat( const char *name );
+void CL_GetCvarString( const char *name, char *out, int outSize );
+
 void CL_OpenPauseMenu( void );
 void CL_ClosePauseMenu( void );
 int CL_IsPauseMenuOpen( void );

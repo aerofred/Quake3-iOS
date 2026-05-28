@@ -122,6 +122,8 @@ typedef struct
 #define ID_JOYENABLE	40
 #define ID_JOYTHRESHOLD	41
 #define ID_SMOOTHMOUSE	42
+#define ID_TOUCHMOVESENSITIVITY	43
+#define ID_TOUCHLOOKSENSITIVITY	44
 
 #define ANIM_IDLE		0
 #define ANIM_RUN		1
@@ -209,6 +211,8 @@ typedef struct
 	menuaction_s		togglemenu;
 	menuradiobutton_s	joyenable;
 	menuslider_s		joythreshold;
+	menuslider_s		touchmovesensitivity;
+	menuslider_s		touchlooksensitivity;
 	int					section;
 	qboolean			waitingforkey;
 	char				playerModel[64];
@@ -275,6 +279,8 @@ static configcvar_t g_configcvars[] =
 	{"sensitivity",		0,					0},
 	{"in_joystick",		0,					0},
 	{"joy_threshold",	0,					0},
+	{"touch_move_sensitivity",	0,			0},
+	{"touch_look_sensitivity",	0,			0},
 	{"m_filter",		0,					0},
 	{"cl_freelook",		0,					0},
 	{NULL,				0,					0}
@@ -325,6 +331,8 @@ static menucommon_s *g_looking_controls[] = {
 	(menucommon_s *)&s_controls.zoomview,
 	(menucommon_s *)&s_controls.joyenable,
 	(menucommon_s *)&s_controls.joythreshold,
+	(menucommon_s *)&s_controls.touchmovesensitivity,
+	(menucommon_s *)&s_controls.touchlooksensitivity,
 	NULL,
 };
 
@@ -814,6 +822,8 @@ static void Controls_GetConfig( void )
 	s_controls.sensitivity.curvalue  = UI_ClampCvar( 2, 30, Controls_GetCvarValue( "sensitivity" ) );
 	s_controls.joyenable.curvalue    = UI_ClampCvar( 0, 1, Controls_GetCvarValue( "in_joystick" ) );
 	s_controls.joythreshold.curvalue = UI_ClampCvar( 0.05f, 0.75f, Controls_GetCvarValue( "joy_threshold" ) );
+	s_controls.touchmovesensitivity.curvalue = UI_ClampCvar( 0.25f, 3.0f, Controls_GetCvarValue( "touch_move_sensitivity" ) );
+	s_controls.touchlooksensitivity.curvalue = UI_ClampCvar( 0.25f, 3.0f, Controls_GetCvarValue( "touch_look_sensitivity" ) );
 	s_controls.freelook.curvalue     = UI_ClampCvar( 0, 1, Controls_GetCvarValue( "cl_freelook" ) );
 }
 
@@ -856,6 +866,8 @@ static void Controls_SetConfig( void )
 	trap_Cvar_SetValue( "sensitivity", s_controls.sensitivity.curvalue );
 	trap_Cvar_SetValue( "in_joystick", s_controls.joyenable.curvalue );
 	trap_Cvar_SetValue( "joy_threshold", s_controls.joythreshold.curvalue );
+	trap_Cvar_SetValue( "touch_move_sensitivity", s_controls.touchmovesensitivity.curvalue );
+	trap_Cvar_SetValue( "touch_look_sensitivity", s_controls.touchlooksensitivity.curvalue );
 	trap_Cvar_SetValue( "cl_freelook", s_controls.freelook.curvalue );
 	trap_Cmd_ExecuteText( EXEC_APPEND, "in_restart\n" );
 }
@@ -890,6 +902,8 @@ static void Controls_SetDefaults( void )
 	s_controls.sensitivity.curvalue  = Controls_GetCvarDefault( "sensitivity" );
 	s_controls.joyenable.curvalue    = Controls_GetCvarDefault( "in_joystick" );
 	s_controls.joythreshold.curvalue = Controls_GetCvarDefault( "joy_threshold" );
+	s_controls.touchmovesensitivity.curvalue = Controls_GetCvarDefault( "touch_move_sensitivity" );
+	s_controls.touchlooksensitivity.curvalue = Controls_GetCvarDefault( "touch_look_sensitivity" );
 	s_controls.freelook.curvalue     = Controls_GetCvarDefault( "cl_freelook" );
 }
 
@@ -1121,6 +1135,8 @@ static void Controls_MenuEvent( void* ptr, int event )
 		case ID_AUTOSWITCH:
 		case ID_JOYENABLE:
 		case ID_JOYTHRESHOLD:
+		case ID_TOUCHMOVESENSITIVITY:
+		case ID_TOUCHLOOKSENSITIVITY:
 			if (event == QM_ACTIVATED)
 			{
 				s_controls.changesmade = qtrue;
@@ -1559,6 +1575,26 @@ static void Controls_MenuInit( void )
 	s_controls.joythreshold.minvalue		  = 0.05f;
 	s_controls.joythreshold.maxvalue		  = 0.75f;
 	s_controls.joythreshold.generic.statusbar = Controls_StatusBar;
+
+	s_controls.touchmovesensitivity.generic.type	  = MTYPE_SLIDER;
+	s_controls.touchmovesensitivity.generic.x		  = SCREEN_WIDTH/2;
+	s_controls.touchmovesensitivity.generic.flags	  = QMF_SMALLFONT;
+	s_controls.touchmovesensitivity.generic.name	  = "move joystick sensitivity";
+	s_controls.touchmovesensitivity.generic.id 	      = ID_TOUCHMOVESENSITIVITY;
+	s_controls.touchmovesensitivity.generic.callback  = Controls_MenuEvent;
+	s_controls.touchmovesensitivity.minvalue		  = 0.25f;
+	s_controls.touchmovesensitivity.maxvalue		  = 3.0f;
+	s_controls.touchmovesensitivity.generic.statusbar = Controls_StatusBar;
+
+	s_controls.touchlooksensitivity.generic.type	   = MTYPE_SLIDER;
+	s_controls.touchlooksensitivity.generic.x		   = SCREEN_WIDTH/2;
+	s_controls.touchlooksensitivity.generic.flags	   = QMF_SMALLFONT;
+	s_controls.touchlooksensitivity.generic.name	   = "look button sensitivity";
+	s_controls.touchlooksensitivity.generic.id 	       = ID_TOUCHLOOKSENSITIVITY;
+	s_controls.touchlooksensitivity.generic.callback   = Controls_MenuEvent;
+	s_controls.touchlooksensitivity.minvalue		   = 0.25f;
+	s_controls.touchlooksensitivity.maxvalue		   = 3.0f;
+	s_controls.touchlooksensitivity.generic.statusbar  = Controls_StatusBar;
 
 	s_controls.name.generic.type	= MTYPE_PTEXT;
 	s_controls.name.generic.flags	= QMF_CENTER_JUSTIFY|QMF_INACTIVE;
