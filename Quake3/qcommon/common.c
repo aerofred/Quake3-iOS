@@ -2844,6 +2844,11 @@ void Com_Init( char *commandLine ) {
 	// start in full screen ui mode
 	Cvar_Set("r_uiFullScreen", "1");
 
+	// Register net cvars and open sockets before renderer init: on iOS,
+	// CL_StartHunkUsers installs touch controls that may flush the command
+	// buffer (including +connect) before Sys_Startup reaches NET_Init.
+	NET_Init();
+
 	CL_StartHunkUsers( qfalse );
 
 	// make sure single player is off by default

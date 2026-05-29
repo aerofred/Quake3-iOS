@@ -242,7 +242,7 @@
         <!--Server Browser View Controller-->
         <scene sceneID="98B-oY-pEO">
             <objects>
-                <viewController id="gOE-px-5yC" customClass="ServerBrowserViewController" customModule="Quake3_tvOS" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="ServerBrowserViewController" id="gOE-px-5yC" customClass="ServerBrowserViewController" customModule="Quake3_tvOS" customModuleProvider="target" sceneMemberID="viewController">
                     <layoutGuides>
                         <viewControllerLayoutGuide type="top" id="MPJ-Js-qjw"/>
                         <viewControllerLayoutGuide type="bottom" id="OjR-kq-fif"/>

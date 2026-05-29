@@ -865,7 +865,9 @@ extension SDL_uikitviewcontroller {
         let moveSensitivity = defaults.object(forKey: "touchMoveSensitivity") == nil ? 1.0 : defaults.double(forKey: "touchMoveSensitivity")
         let lookSensitivity = defaults.object(forKey: "touchLookSensitivity") == nil ? 1.0 : defaults.double(forKey: "touchLookSensitivity")
 
-        CL_ExecuteConsole(
+        // Append only: CL_ExecuteConsole flushes the whole command buffer and can
+        // run deferred +connect before the engine is fully initialized.
+        Cbuf_AddText(
             "j_yaw_axis 0; j_side_axis 4; j_side 0; j_forward_axis 1; j_forward -2; j_yaw 1; cl_run 1; sensitivity 10; touch_move_sensitivity \(max(0.25, min(3.0, moveSensitivity))); touch_look_sensitivity \(max(0.25, min(3.0, lookSensitivity)))\n"
         )
     }
@@ -1427,6 +1429,7 @@ extension SDL_uikitviewcontroller {
         case mainMenu
         case arenaSelection
         case botMatch
+        case multiplayerBrowser
     }
 
     private func replaceRootNavigationStack(target: QuitReturnTarget, app: AppDelegate) {
@@ -1457,6 +1460,12 @@ extension SDL_uikitviewcontroller {
             botMatchVC.fragLimit = GameSession.fragLimit
             botMatchVC.timeLimit = GameSession.timeLimit
             navigationController.setViewControllers([mainMenuVC, botMatchVC], animated: false)
+        case .multiplayerBrowser:
+            guard let mainMenuVC = storyboard.instantiateViewController(withIdentifier: "MainMenuViewController") as? MainMenuViewController,
+                  let serverBrowserVC = storyboard.instantiateViewController(withIdentifier: "ServerBrowserViewController") as? ServerBrowserViewController else {
+                return
+            }
+            navigationController.setViewControllers([mainMenuVC, serverBrowserVC], animated: false)
         }
 
         navigationController.view.isUserInteractionEnabled = true
@@ -1483,7 +1492,14 @@ extension SDL_uikitviewcontroller {
         }
 
         let navigate = {
-            let target: QuitReturnTarget = GameSession.botMatch ? .botMatch : .arenaSelection
+            let target: QuitReturnTarget
+            if GameSession.botMatch {
+                target = .botMatch
+            } else if GameSession.multiplayer {
+                target = .multiplayerBrowser
+            } else {
+                target = .arenaSelection
+            }
             self.replaceRootNavigationStack(target: target, app: app)
         }
 

@@ -525,7 +525,7 @@
         <!--Server Browser View Controller-->
         <scene sceneID="98B-oY-pEO">
             <objects>
-                <viewController id="gOE-px-5yC" customClass="ServerBrowserViewController" customModule="Quake3_iOS" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="ServerBrowserViewController" id="gOE-px-5yC" customClass="ServerBrowserViewController" customModule="Quake3_iOS" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="53K-Kb-nZQ">
                         <rect key="frame" x="0.0" y="0.0" width="568" height="320"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>

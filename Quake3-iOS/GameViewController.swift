@@ -58,7 +58,10 @@ class GameViewController: UIViewController {
     @objc private func handleReturnToArenaSelection() {
         guard let navigationController = navigationController else { return }
 
-        if let tiersVC = navigationController.viewControllers.last(where: { $0 is TiersListViewController }) {
+        if GameSession.multiplayer,
+           let serverBrowserVC = navigationController.viewControllers.last(where: { $0 is ServerBrowserViewController }) {
+            navigationController.popToViewController(serverBrowserVC, animated: true)
+        } else if let tiersVC = navigationController.viewControllers.last(where: { $0 is TiersListViewController }) {
             navigationController.popToViewController(tiersVC, animated: true)
         } else if let botMatchVC = navigationController.viewControllers.last(where: { $0 is BotMatchViewController }) {
             navigationController.popToViewController(botMatchVC, animated: true)

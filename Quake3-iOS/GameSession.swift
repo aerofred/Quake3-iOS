@@ -10,6 +10,7 @@ enum GameSession {
     static var map = ""
     static var difficulty = 2
     static var botMatch = false
+    static var multiplayer = false
     static var hostMultiplayer = false
     static var botSkill: Float = 3
     static var bots: [(name: String, skill: Float, icon: String)] = []
@@ -19,6 +20,7 @@ enum GameSession {
 
     static func configureForSinglePlayer(map: String, difficulty: Int, bots: [String] = []) {
         botMatch = false
+        multiplayer = false
         hostMultiplayer = false
         server = nil
         self.map = map
@@ -34,6 +36,7 @@ enum GameSession {
         timeLimit: Int
     ) {
         botMatch = true
+        multiplayer = false
         hostMultiplayer = false
         server = nil
         self.map = map
@@ -45,6 +48,7 @@ enum GameSession {
 
     static func configureForMultiplayer(server: Server) {
         botMatch = false
+        multiplayer = true
         hostMultiplayer = false
         map = ""
         bots = []
@@ -53,6 +57,7 @@ enum GameSession {
 
     static func configureForHostedMultiplayer(map: String) {
         botMatch = false
+        multiplayer = true
         hostMultiplayer = true
         server = nil
         self.map = map

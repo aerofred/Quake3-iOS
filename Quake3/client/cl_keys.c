@@ -1286,7 +1286,7 @@ void CL_KeyDownEvent( int key, unsigned time )
 
 		if ( !( Key_GetCatcher( ) & KEYCATCH_UI ) ) {
 #ifdef IOS
-			if ( com_sv_running && com_sv_running->integer && clc.state >= CA_CONNECTED && !clc.demoplaying ) {
+			if ( clc.state == CA_ACTIVE && !clc.demoplaying ) {
 				CL_OpenPauseMenu();
 			}
 			else if ( clc.state != CA_DISCONNECTED ) {
