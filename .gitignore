@@ -82,3 +82,5 @@ baseq3/
 .DS_Store
 
 *.log
+
+.vscode/

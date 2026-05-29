@@ -15,6 +15,7 @@ protocol ServerFilterProtocol {
     func setSortOption(sortOption: String, sortOptionTitle: String)
     func setShowFull(showFull: Bool)
     func setShowEmpty(showEmpty: Bool)
+    func setLocalOnly(localOnly: Bool)
 }
 
 class ServerBrowserViewController: UIViewController {
@@ -32,6 +33,7 @@ class ServerBrowserViewController: UIViewController {
     var sortOptionTitle = "Ping"
     var showEmpty = true
     var showFull = true
+    var localOnly = false
     var busy = false
     private let hostButton = UIButton(type: .system)
     private let joinIPButton = UIButton(type: .system)
@@ -95,6 +97,7 @@ class ServerBrowserViewController: UIViewController {
             (segue.destination as! ServerFilterViewController).gameTypeFilterTitle = self.gameTypeFilterTitle
             (segue.destination as! ServerFilterViewController).showEmpty = self.showEmpty
             (segue.destination as! ServerFilterViewController).showFull = self.showFull
+            (segue.destination as! ServerFilterViewController).localOnly = self.localOnly
         }
     }
     
@@ -280,28 +283,57 @@ class ServerBrowserViewController: UIViewController {
 
     private func connectToManualAddress(_ address: String) {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else {
+            presentJoinIPError("Enter an IP address.")
+            return
+        }
 
         let parts = trimmed.split(separator: ":", maxSplits: 1).map(String.init)
         let hostInput = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
         let port = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines) : "27960"
-        let host = expandedLANAddress(from: hostInput)
-        guard !host.isEmpty, !port.isEmpty else { return }
+        guard let host = expandedLANAddress(from: hostInput) else {
+            presentJoinIPError("Enter a full IP address, or only the last number when the local IP is available.")
+            return
+        }
+        guard isValidIPv4Address(host), isValidPort(port) else {
+            presentJoinIPError("Enter a valid address, for example 192.168.1.42:27960.")
+            return
+        }
 
         UserDefaults.standard.set("\(host):\(port)", forKey: "lastJoinIPAddress")
         startManualJoin(server: Q3Server(ip: host, port: port))
     }
 
-    private func expandedLANAddress(from input: String) -> String {
+    private func expandedLANAddress(from input: String) -> String? {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.contains("."),
               let octet = Int(trimmed),
               (0...255).contains(octet),
               let prefix = localNetworkPrefix() else {
-            return trimmed
+            return trimmed.contains(".") ? trimmed : nil
         }
 
         return "\(prefix).\(octet)"
+    }
+
+    private func isValidIPv4Address(_ address: String) -> Bool {
+        let octets = address.split(separator: ".", omittingEmptySubsequences: false)
+        guard octets.count == 4 else { return false }
+        return octets.allSatisfy { octet in
+            guard let value = Int(octet), (0...255).contains(value) else { return false }
+            return String(value) == String(octet) || octet == "0"
+        }
+    }
+
+    private func isValidPort(_ port: String) -> Bool {
+        guard let value = Int(port), (1...65535).contains(value) else { return false }
+        return String(value) == port
+    }
+
+    private func presentJoinIPError(_ message: String) {
+        let alert = UIAlertController(title: "Join IP", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 
     private func compactJoinAddress(_ address: String?, localPrefix: String?) -> String? {
@@ -431,6 +463,7 @@ extension ServerBrowserViewController: CoordinatorDelegate {
             var gameTypeMatch = true
             var modMatch = true
             var sizeMatch = true
+            var localMatch = true
             
             if !self.gameTypeFilter.isEmpty {
                 if server.gametype != self.gameTypeFilter {
@@ -458,7 +491,11 @@ extension ServerBrowserViewController: CoordinatorDelegate {
                 }
             }
 
-            if gameTypeMatch && modMatch && sizeMatch {
+            if localOnly {
+                localMatch = isLocalServer(server)
+            }
+
+            if gameTypeMatch && modMatch && sizeMatch && localMatch {
                 self.filteredServers.append(server)
             }
             
@@ -491,6 +528,19 @@ extension ServerBrowserViewController: CoordinatorDelegate {
             self.activityInfo.text = "\(self.servers.count) servers found\(filterString)"
         }        
 
+    }
+
+    private func isLocalServer(_ server: Server) -> Bool {
+        let ip = server.ip.trimmingCharacters(in: .whitespacesAndNewlines)
+        if ip == "127.0.0.1" || ip == "localhost" {
+            return true
+        }
+
+        guard let localPrefix = localNetworkPrefix() else {
+            return false
+        }
+
+        return ip.hasPrefix("\(localPrefix).")
     }
     
     func coordinator(_ coordinator: Coordinator, didFinishFetchingInfoFor server: Server) {
@@ -582,6 +632,11 @@ extension ServerBrowserViewController: ServerFilterProtocol {
     
     func setShowEmpty(showEmpty: Bool) {
         self.showEmpty = showEmpty
+        self.filterServers()
+    }
+
+    func setLocalOnly(localOnly: Bool) {
+        self.localOnly = localOnly
         self.filterServers()
     }
     

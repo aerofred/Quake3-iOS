@@ -1715,7 +1715,7 @@ extension SDL_uikitviewcontroller: JoystickDelegate {
     /// j_forward_axis = 1, j_yaw_axis = 0 (horizontal stick = turn left/right).
     private static let joyAxisForward = 1
     private static let joyAxisYaw = 0
-    private static let joyMoveGain: CGFloat = 1.35
+    private static let joyMoveGain: CGFloat = 1.0
     private static let joyDeadZone: CGFloat = 0.08
     private static let joyResponseExponent: CGFloat = 1.0
 
