@@ -109,6 +109,8 @@ private extension OptionsViewController {
             stack.addArrangedSubview(makePositionGroup(control))
         }
         stack.addArrangedSubview(makeResetPositionsButton())
+        stack.addArrangedSubview(makeSectionTitle("Gamepad"))
+        stack.addArrangedSubview(makeGamepadConfigButton())
 
         let scrollView = UIScrollView()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -372,6 +374,19 @@ private extension OptionsViewController {
         button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
         button.addTarget(self, action: #selector(resetTouchPositions), for: .touchUpInside)
         return button
+    }
+
+    func makeGamepadConfigButton() -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle("CONFIGURE GAMEPAD", for: .normal)
+        button.setTitleColor(.red, for: .normal)
+        button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
+        button.addTarget(self, action: #selector(openGamepadConfig), for: .touchUpInside)
+        return button
+    }
+
+    @objc func openGamepadConfig() {
+        navigationController?.pushViewController(GamepadConfigViewController(), animated: true)
     }
 
     @objc func touchSettingsChanged(_ sender: UISlider) {

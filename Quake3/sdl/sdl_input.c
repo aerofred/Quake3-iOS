@@ -55,6 +55,48 @@ static int in_eventTime = 0;
 
 static SDL_Window *SDL_window = NULL;
 
+#ifdef IOS
+static qboolean iosMouseHasLastPos = qfalse;
+static int iosMouseLastX = 0;
+static int iosMouseLastY = 0;
+
+static void IN_IosResetMousePosition( void )
+{
+	iosMouseHasLastPos = qfalse;
+}
+
+static void IN_IosQueueMouseMotion( int x, int y, int xrel, int yrel )
+{
+	int dx, dy;
+
+	if( xrel || yrel )
+	{
+		dx = xrel;
+		dy = yrel;
+	}
+	else
+	{
+		if( !iosMouseHasLastPos )
+		{
+			iosMouseLastX = x;
+			iosMouseLastY = y;
+			iosMouseHasLastPos = qtrue;
+			return;
+		}
+
+		dx = x - iosMouseLastX;
+		dy = y - iosMouseLastY;
+		iosMouseLastX = x;
+		iosMouseLastY = y;
+
+		if( !dx && !dy )
+			return;
+	}
+
+	Com_QueueEvent( in_eventTime, SE_MOUSE, dx, dy, 0, NULL );
+}
+#endif
+
 #define CTRL(a) ((a)-'a'+1)
 
 /*
@@ -348,10 +390,13 @@ static void IN_ActivateMouse( qboolean isFullscreen )
 
 	if( !mouseActive )
 	{
-//		SDL_SetRelativeMouseMode( SDL_TRUE );
+#ifndef IOS
 		SDL_SetWindowGrab( SDL_window, SDL_TRUE );
-
+#endif
 		IN_GobbleMotionEvents( );
+#ifdef IOS
+		IN_IosResetMousePosition( );
+#endif
 	}
 
 	// in_nograb makes no sense in fullscreen mode
@@ -359,6 +404,11 @@ static void IN_ActivateMouse( qboolean isFullscreen )
 	{
 		if( in_nograb->modified || !mouseActive )
 		{
+#ifdef IOS
+			// iOS external mice use absolute pointer coordinates.
+			SDL_SetRelativeMouseMode( SDL_FALSE );
+			SDL_SetWindowGrab( SDL_window, SDL_FALSE );
+#else
 			if( in_nograb->integer ) {
 				SDL_SetRelativeMouseMode( SDL_FALSE );
 				SDL_SetWindowGrab( SDL_window, SDL_FALSE );
@@ -366,6 +416,7 @@ static void IN_ActivateMouse( qboolean isFullscreen )
 				SDL_SetRelativeMouseMode( SDL_TRUE );
 				SDL_SetWindowGrab( SDL_window, SDL_TRUE );
 			}
+#endif
 
 			in_nograb->modified = qfalse;
 		}
@@ -399,9 +450,13 @@ static void IN_DeactivateMouse( qboolean isFullscreen )
 		SDL_SetWindowGrab( SDL_window, SDL_FALSE );
 		SDL_SetRelativeMouseMode( SDL_FALSE );
 
+#ifndef IOS
 		// Don't warp the mouse unless the cursor is within the window
 		if( SDL_GetWindowFlags( SDL_window ) & SDL_WINDOW_MOUSE_FOCUS )
 			SDL_WarpMouseInWindow( SDL_window, cls.glconfig.vidWidth / 2, cls.glconfig.vidHeight / 2 );
+#else
+		IN_IosResetMousePosition( );
+#endif
 
 		mouseActive = qfalse;
 	}
@@ -1069,16 +1124,22 @@ static void IN_ProcessEvents( void )
 #ifdef IOS
 					if( Key_GetCatcher( ) & KEYCATCH_UI )
 						break;
-#endif
+					IN_IosQueueMouseMotion( e.motion.x, e.motion.y, e.motion.xrel, e.motion.yrel );
+#else
 					if( !e.motion.xrel && !e.motion.yrel )
 						break;
 					Com_QueueEvent( in_eventTime, SE_MOUSE, e.motion.xrel, e.motion.yrel, 0, NULL );
+#endif
 				}
 				break;
 
 			case SDL_MOUSEBUTTONDOWN:
 			case SDL_MOUSEBUTTONUP:
 				{
+#ifdef IOS
+					if( Key_GetCatcher( ) & KEYCATCH_UI )
+						break;
+#endif
 					int b;
 					switch( e.button.button )
 					{

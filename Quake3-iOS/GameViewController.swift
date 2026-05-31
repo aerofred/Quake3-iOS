@@ -343,22 +343,10 @@ class GameViewController: UIViewController {
             "+set", "j_forward", "-2",
             "+set", "cl_run", "1",
             "+set", "j_yaw", "1",
-            "+set", "sensitivity", "10",
             "+set", "touch_move_sensitivity", touchSensitivityValue(forKey: "touchMoveSensitivity", defaultValue: 1.0),
-            "+set", "touch_look_sensitivity", touchSensitivityValue(forKey: "touchLookSensitivity", defaultValue: 1.0),
-            "+bind", "PAD0_RIGHTTRIGGER", "\"+attack\"",
-            "+bind", "PAD0_LEFTSTICK_UP", "\"+forward\"",
-            "+bind", "PAD0_LEFTSTICK_DOWN", "\"+back\"",
-            "+bind", "PAD0_LEFTSTICK_LEFT", "\"+moveleft\"",
-            "+bind", "PAD0_LEFTSTICK_RIGHT", "\"+moveright\"",
-            "+bind", "PAD0_RIGHTSTICK_UP", "\"+lookup\"",
-            "+bind", "PAD0_RIGHTSTICK_DOWN", "\"+lookdown\"",
-            "+bind", "PAD0_RIGHTSTICK_LEFT", "\"+left\"",
-            "+bind", "PAD0_RIGHTSTICK_RIGHT", "\"+right\"",
-            "+bind", "PAD0_A", "\"+moveup\"",
-            "+bind", "PAD0_LEFTSHOULDER", "\"weapnext\"",
-            "+bind", "PAD0_RIGHTSHOULDER", "\"weapprev\""
+            "+set", "touch_look_sensitivity", touchSensitivityValue(forKey: "touchLookSensitivity", defaultValue: 1.0)
         ])
+        argv.append(contentsOf: GamepadConfig.shared.launchArguments())
 
         #if DEBUG
         argv.append(contentsOf: ["+set", "developer", "1"])
