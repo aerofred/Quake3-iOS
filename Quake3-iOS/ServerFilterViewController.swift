@@ -17,7 +17,7 @@ class ServerFilterViewController: UIViewController {
     var sortOptionTitle = "Ping"
     var showEmpty = true
     var showFull = true
-    var localOnly = false
+    var localOnly = true
     private let localOnlySwitch = UISwitch()
     private let localOnlyButton = UIButton(type: .system)
     
