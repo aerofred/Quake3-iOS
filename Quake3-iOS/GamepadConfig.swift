@@ -194,9 +194,14 @@ final class GamepadConfig {
     }
 
     func launchArguments() -> [String] {
+        #if os(iOS)
+        let useAnalog = "0"
+        #else
+        let useAnalog = "1"
+        #endif
         var args = [
             "+set", "in_joystick", "1",
-            "+set", "in_joystickUseAnalog", "1",
+            "+set", "in_joystickUseAnalog", useAnalog,
             "+set", "sensitivity", String(format: "%.1f", sensitivity),
             "+set", "joy_threshold", String(format: "%.2f", deadZone)
         ]
@@ -209,10 +214,14 @@ final class GamepadConfig {
     }
 
     func appendEngineCommands(to buffer: inout String) {
+        #if os(iOS)
+        buffer += "seta in_joystick 1; seta in_joystickUseAnalog 0; "
+        #else
         buffer += "seta in_joystick 1; seta in_joystickUseAnalog 1; "
+        #endif
         buffer += "seta sensitivity \(String(format: "%.1f", sensitivity)); "
         buffer += "seta joy_threshold \(String(format: "%.2f", deadZone)); "
-        buffer += "seta j_yaw_axis 0; seta j_side_axis 4; seta j_side 0; "
+        buffer += "seta j_yaw_axis 2; seta j_side_axis 4; seta j_side 0.25; seta j_yaw 0; seta j_pitch 0; "
         buffer += "seta j_forward_axis 1; seta j_forward -2; seta j_yaw 1; seta cl_run 1; "
 
         for (input, command) in bindings.sorted(by: { $0.key < $1.key }) {
