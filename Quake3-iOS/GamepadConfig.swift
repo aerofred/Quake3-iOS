@@ -104,11 +104,34 @@ final class GamepadConfig {
     private(set) var bindings: [String: String]
 
     private init() {
-        if let saved = defaults.dictionary(forKey: Self.bindingsKey) as? [String: String] {
-            bindings = saved
-        } else {
+        bindings = Self.mergedBindings(
+            saved: defaults.dictionary(forKey: Self.bindingsKey) as? [String: String]
+        )
+        if !hasEssentialBindings() {
             bindings = Self.defaultBindings
+            persist()
         }
+    }
+
+    private func hasEssentialBindings() -> Bool {
+        let requiredCommands = ["+forward", "+attack"]
+        return requiredCommands.allSatisfy { command in
+            bindings.contains { $0.value == command }
+        }
+    }
+
+    /// Defaults first; saved values override. Empty saved values mean « explicitly unbound ».
+    static func mergedBindings(saved: [String: String]?) -> [String: String] {
+        var merged = defaultBindings
+        guard let saved else { return merged }
+        for (key, value) in saved {
+            if value.isEmpty {
+                merged.removeValue(forKey: key)
+            } else {
+                merged[key] = value
+            }
+        }
+        return merged
     }
 
     var sensitivity: Float {
@@ -172,35 +195,41 @@ final class GamepadConfig {
 
     func launchArguments() -> [String] {
         var args = [
+            "+set", "in_joystick", "1",
+            "+set", "in_joystickUseAnalog", "1",
             "+set", "sensitivity", String(format: "%.1f", sensitivity),
             "+set", "joy_threshold", String(format: "%.2f", deadZone)
         ]
 
-        for (input, command) in bindings where !command.isEmpty {
-            args.append(contentsOf: ["+bind", input, "\"\(command)\""])
+        for (input, command) in bindings.sorted(by: { $0.key < $1.key }) {
+            args.append(contentsOf: ["+bind", input, command])
         }
 
         return args
     }
 
-    func applyToRunningEngine() {
-        var commands = ""
-        commands += "seta sensitivity \(String(format: "%.1f", sensitivity))\n"
-        commands += "seta joy_threshold \(String(format: "%.2f", deadZone))\n"
+    func appendEngineCommands(to buffer: inout String) {
+        buffer += "seta in_joystick 1; seta in_joystickUseAnalog 1; "
+        buffer += "seta sensitivity \(String(format: "%.1f", sensitivity)); "
+        buffer += "seta joy_threshold \(String(format: "%.2f", deadZone)); "
+        buffer += "seta j_yaw_axis 0; seta j_side_axis 4; seta j_side 0; "
+        buffer += "seta j_forward_axis 1; seta j_forward -2; seta j_yaw 1; seta cl_run 1; "
 
-        let allInputs = Set(Self.defaultBindings.keys)
-            .union(bindings.keys)
-            .union(Self.inputDisplayNames.keys)
-
-        for input in allInputs.sorted() {
-            let command = bindings[input] ?? ""
-            if command.isEmpty {
-                commands += "unbind \(input)\n"
+        for (input, command) in bindings.sorted(by: { $0.key < $1.key }) {
+            if command.contains(" ") {
+                buffer += "bind \(input) \"\(command)\"; "
             } else {
-                commands += "bind \(input) \"\(command)\"\n"
+                buffer += "bind \(input) \(command); "
             }
         }
+        buffer += "\n"
+    }
 
+    func applyToRunningEngine() {
+        var commands = ""
+        appendEngineCommands(to: &commands)
+        GamepadDebugLog.log("applyToRunningEngine: \(bindings.count) binds, cmdLen=\(commands.count)")
         CL_ExecuteConsole(commands)
+        GamepadInputManager.shared.reloadKeyNumbers()
     }
 }

@@ -15,6 +15,7 @@ class MainMenuViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        GamepadInputManager.prepareAtApplicationLaunch()
         layoutMenuForSafeArea()
         
         if defaults.string(forKey: "playerName") == nil {

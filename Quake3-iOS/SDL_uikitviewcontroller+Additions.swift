@@ -674,7 +674,7 @@ fileprivate enum InGameNativeUI {
         overlayWindow = window
     }
 
-    static func deactivate() {
+    static func deactivate(restoreSDLFocus: Bool = true) {
         guard isActive else { return }
 
         isActive = false
@@ -684,9 +684,13 @@ fileprivate enum InGameNativeUI {
         overlayRootViewController = nil
         overlayWindow = nil
 
-        sdlWindow?.isUserInteractionEnabled = true
-        sdlWindow?.windowLevel = savedSDLWindowLevel
-        sdlWindow?.makeKeyAndVisible()
+        if restoreSDLFocus {
+            sdlWindow?.isUserInteractionEnabled = true
+            sdlWindow?.windowLevel = savedSDLWindowLevel
+            sdlWindow?.makeKeyAndVisible()
+        } else {
+            sdlWindow?.isUserInteractionEnabled = false
+        }
         sdlWindow = nil
     }
 
@@ -698,6 +702,83 @@ fileprivate enum InGameNativeUI {
     ) {
         activate(sdlGameWindow: sdlGameWindow)
         presenter()?.present(viewController, animated: animated, completion: completion)
+    }
+}
+
+/// Brings the storyboard menu window above SDL so settings screens stay interactive.
+enum FrontendUI {
+    static func activate() {
+        let work = {
+            guard let app = UIApplication.shared.delegate as? AppDelegate,
+                  let window = app.uiwindow else {
+                return
+            }
+
+            Sys_SetIOSMainLoopPaused(qboolean(1))
+            Sys_SetSDLWindowVisible(qboolean(0))
+            InGameNativeUI.deactivate(restoreSDLFocus: false)
+
+            let sdlLevel = highestSDLWindowLevel()
+            window.windowLevel = UIWindow.Level(
+                rawValue: max(UIWindow.Level.alert.rawValue + 2, sdlLevel + 2)
+            )
+            window.isHidden = false
+            window.isUserInteractionEnabled = true
+            window.rootViewController?.view.isUserInteractionEnabled = true
+            window.makeKeyAndVisible()
+            window.rootViewController?.view.setNeedsLayout()
+            window.rootViewController?.view.layoutIfNeeded()
+
+            disableInteractionOnOtherWindows(except: window)
+        }
+
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
+    }
+
+    private static func highestSDLWindowLevel() -> CGFloat {
+        var highest = UIWindow.Level.normal.rawValue
+        let windows: [UIWindow]
+        if #available(iOS 13.0, *) {
+            windows = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+        } else {
+            windows = UIApplication.shared.windows
+        }
+
+        guard let appWindow = (UIApplication.shared.delegate as? AppDelegate)?.uiwindow else {
+            return highest
+        }
+
+        for window in windows where window !== appWindow {
+            highest = max(highest, window.windowLevel.rawValue)
+        }
+        return highest
+    }
+
+    private static func disableInteractionOnOtherWindows(except appWindow: UIWindow) {
+        let windows: [UIWindow]
+        if #available(iOS 13.0, *) {
+            windows = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+        } else {
+            windows = UIApplication.shared.windows
+        }
+
+        for window in windows where window !== appWindow {
+            window.isUserInteractionEnabled = false
+        }
+    }
+
+    /// Call when returning to gameplay so SDL touch overlays work again.
+    static func enableGameplayInput() {
+        InGameNativeUI.deactivate(restoreSDLFocus: true)
+        Sys_SetSDLWindowVisible(qboolean(1))
     }
 }
 
@@ -728,6 +809,7 @@ extension SDL_uikitviewcontroller {
         fileprivate static weak var _pauseMenuViewController: PauseMenuViewController?
         static weak var _pauseMenuGameController: SDL_uikitviewcontroller?
         static var _pauseMenuShowing = false
+        static var _lastMenuHidingControls: Bool?
     }
     
     var fireButton:UIButton {
@@ -854,6 +936,8 @@ extension SDL_uikitviewcontroller {
             Holder._controlsInstalled = true
             createOnScreenControlViews()
             applyTouchJoystickCvars()
+            GamepadDebugLog.log("installOnScreenControls: starting GamepadInputManager")
+            GamepadInputManager.shared.start()
             NotificationCenter.default.addObserver(self, selector: #selector(touchControlsChanged), name: .quakeTouchControlsChanged, object: nil)
         }
 
@@ -867,9 +951,12 @@ extension SDL_uikitviewcontroller {
 
         // Append only: CL_ExecuteConsole flushes the whole command buffer and can
         // run deferred +connect before the engine is fully initialized.
-        Cbuf_AddText(
-            "j_yaw_axis 0; j_side_axis 4; j_side 0; j_forward_axis 1; j_forward -2; j_yaw 1; cl_run 1; sensitivity 10; touch_move_sensitivity \(max(0.25, min(3.0, moveSensitivity))); touch_look_sensitivity \(max(0.25, min(3.0, lookSensitivity)))\n"
-        )
+        var commands =
+            "j_yaw_axis 0; j_side_axis 4; j_side 0; j_forward_axis 1; j_forward -2; j_yaw 1; cl_run 1; "
+        commands += "touch_move_sensitivity \(max(0.25, min(3.0, moveSensitivity))); "
+        commands += "touch_look_sensitivity \(max(0.25, min(3.0, lookSensitivity))); "
+        GamepadConfig.shared.appendEngineCommands(to: &commands)
+        Cbuf_AddText(commands)
     }
 
     private func clampedTouchCvar(_ name: String, fallback: CGFloat = 1.0) -> CGFloat {
@@ -1170,11 +1257,17 @@ extension SDL_uikitviewcontroller {
         escapeButton.isHidden = menuOpen
         f1Button.isHidden = menuOpen
 
+        guard Holder._lastMenuHidingControls != menuOpen else { return }
+        Holder._lastMenuHidingControls = menuOpen
+
         if menuOpen {
             joystickView.delegate = nil
             resetTouchJoystickAxes()
+            GamepadInputManager.shared.pauseForOverlay()
         } else {
             joystickView.delegate = self
+            FrontendUI.enableGameplayInput()
+            GamepadInputManager.shared.start()
         }
     }
 
@@ -1546,15 +1639,8 @@ extension SDL_uikitviewcontroller {
     }
 
     private func foregroundAppWindow(_ window: UIWindow) {
-        InGameNativeUI.deactivate()
-        let sdlWindowLevel = view.window?.windowLevel.rawValue ?? UIWindow.Level.normal.rawValue
-        window.windowLevel = UIWindow.Level(rawValue: max(UIWindow.Level.alert.rawValue + 2, sdlWindowLevel + 2))
-        window.isHidden = false
-        window.isUserInteractionEnabled = true
-        window.rootViewController?.view.isUserInteractionEnabled = true
-        window.makeKeyAndVisible()
-        window.rootViewController?.view.setNeedsLayout()
-        window.rootViewController?.view.layoutIfNeeded()
+        _ = window
+        FrontendUI.activate()
     }
 
     private func backgroundSDLWindow() {
@@ -1713,10 +1799,6 @@ extension SDL_uikitviewcontroller {
         }
     }
 
-    open override func viewDidLoad() {
-        super.viewDidLoad()
-    }
-
     open override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         installOnScreenControls()
@@ -1736,6 +1818,7 @@ extension SDL_uikitviewcontroller: JoystickDelegate {
     private static let joyResponseExponent: CGFloat = 1.0
 
     private func resetTouchJoystickAxes() {
+        GamepadInputManager.shared.onScreenMoveJoystickEngaged = false
         let t = Int32(Sys_Milliseconds())
         CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisYaw), 0, t)
         CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisForward), 0, t)
@@ -1754,8 +1837,16 @@ extension SDL_uikitviewcontroller: JoystickDelegate {
     }
 
     func handleJoyStickPosition(x: CGFloat, y: CGFloat) {
+        // SDL gamepad uses axes 1/4 for move and j_yaw_axis=2 for look — avoid axis 0 fights.
+        if Sys_SDLGamepadOpened() > 0 {
+            GamepadInputManager.shared.onScreenMoveJoystickEngaged = false
+            return
+        }
+
         let yaw = applyJoystickResponse(x)
         let forward = applyJoystickResponse(y)
+        GamepadInputManager.shared.onScreenMoveJoystickEngaged =
+            abs(x) > SDL_uikitviewcontroller.joyDeadZone || abs(y) > SDL_uikitviewcontroller.joyDeadZone
         let sensitivity = clampedTouchCvar("touch_move_sensitivity")
         let t = Int32(Sys_Milliseconds())
 

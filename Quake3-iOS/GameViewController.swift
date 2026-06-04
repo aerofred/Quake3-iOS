@@ -52,10 +52,12 @@ class GameViewController: UIViewController {
     }
 
     @objc private func handleReturnToMainMenu() {
+        FrontendUI.activate()
         navigationController?.popViewController(animated: true)
     }
 
     @objc private func handleReturnToArenaSelection() {
+        FrontendUI.activate()
         guard let navigationController = navigationController else { return }
 
         if GameSession.multiplayer,
@@ -77,6 +79,13 @@ class GameViewController: UIViewController {
         activateGameView(source: "viewDidAppear")
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if isMovingFromParent || isBeingDismissed {
+            FrontendUI.activate()
+        }
+    }
+
     func activateAfterPausedMenuNavigation() {
         activateGameView(source: "pausedMenuNavigation")
     }
@@ -90,7 +99,7 @@ class GameViewController: UIViewController {
             appWindow.isUserInteractionEnabled = true
         }
         Sys_SetIOSMainLoopPaused(qboolean(0))
-        Sys_SetSDLWindowVisible(qboolean(1))
+        FrontendUI.enableGameplayInput()
         if engineWasRunning {
             hideFrontendWindowForRunningEngine()
         }
@@ -334,8 +343,6 @@ class GameViewController: UIViewController {
             "+set", "s_sdlSpeed", "44100",
             "+set", "r_useHiDPI", "1",
             "+set", "r_fullscreen", "1",
-            "+set", "in_joystick", "1",
-            "+set", "in_joystickUseAnalog", "1",
             "+set", "j_yaw_axis", "0",
             "+set", "j_side_axis", "4",
             "+set", "j_side", "0",
@@ -346,7 +353,9 @@ class GameViewController: UIViewController {
             "+set", "touch_move_sensitivity", touchSensitivityValue(forKey: "touchMoveSensitivity", defaultValue: 1.0),
             "+set", "touch_look_sensitivity", touchSensitivityValue(forKey: "touchLookSensitivity", defaultValue: 1.0)
         ])
-        argv.append(contentsOf: GamepadConfig.shared.launchArguments())
+        let gamepadArgs = GamepadConfig.shared.launchArguments()
+        argv.append(contentsOf: gamepadArgs)
+        GamepadDebugLog.log("GameViewController: appended \(gamepadArgs.count / 3) gamepad +set/+bind argv tokens")
 
         #if DEBUG
         argv.append(contentsOf: ["+set", "developer", "1"])

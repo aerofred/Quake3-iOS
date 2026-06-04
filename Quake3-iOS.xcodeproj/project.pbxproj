@@ -468,6 +468,10 @@
 		A1GPAD2505310014 /* GamepadCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1GPAD2505310002 /* GamepadCapture.swift */; };
 		A1GPAD2505310015 /* GamepadConfigViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1GPAD2505310003 /* GamepadConfigViewController.swift */; };
 		A1GPAD2505310016 /* GamepadConfigViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1GPAD2505310003 /* GamepadConfigViewController.swift */; };
+		A1GPAD2506010001 /* GamepadInputManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1GPAD2506010000 /* GamepadInputManager.swift */; };
+		A1GPAD2506010002 /* GamepadInputManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1GPAD2506010000 /* GamepadInputManager.swift */; };
+		A1GPAD2506010003 /* GamepadDebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1GPAD2506010004 /* GamepadDebugLog.swift */; };
+		A1GPAD2506010005 /* GamepadDebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1GPAD2506010004 /* GamepadDebugLog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -835,6 +839,8 @@
 		A1GPAD2505310001 /* GamepadConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamepadConfig.swift; sourceTree = "<group>"; };
 		A1GPAD2505310002 /* GamepadCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamepadCapture.swift; sourceTree = "<group>"; };
 		A1GPAD2505310003 /* GamepadConfigViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamepadConfigViewController.swift; sourceTree = "<group>"; };
+		A1GPAD2506010000 /* GamepadInputManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamepadInputManager.swift; sourceTree = "<group>"; };
+		A1GPAD2506010004 /* GamepadDebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamepadDebugLog.swift; sourceTree = "<group>"; };
 		A1LOOK2505200001 /* LookTouchPad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookTouchPad.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -921,6 +927,8 @@
 				A1GPAD2505310002 /* GamepadCapture.swift */,
 				A1GPAD2505310001 /* GamepadConfig.swift */,
 				A1GPAD2505310003 /* GamepadConfigViewController.swift */,
+				A1GPAD2506010000 /* GamepadInputManager.swift */,
+				A1GPAD2506010004 /* GamepadDebugLog.swift */,
 				A1FRED2505200001 /* GameSession.swift */,
 				A1FRED2505200004 /* MapCatalog.swift */,
 				A1B0TC2505210001 /* BotCatalog.swift */,
@@ -1500,6 +1508,11 @@
 					A179BFE2210142F900D3C611 = {
 						CreatedOnToolsVersion = 9.4.1;
 						LastSwiftMigration = 1020;
+						SystemCapabilities = {
+							com.apple.GameControllers = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -1630,6 +1643,8 @@
 				A1GPAD2505310011 /* GamepadConfig.swift in Sources */,
 				A1GPAD2505310013 /* GamepadCapture.swift in Sources */,
 				A1GPAD2505310015 /* GamepadConfigViewController.swift in Sources */,
+				A1GPAD2506010001 /* GamepadInputManager.swift in Sources */,
+				A1GPAD2506010003 /* GamepadDebugLog.swift in Sources */,
 				A1FRED2505200002 /* GameSession.swift in Sources */,
 				A1FRED2505200005 /* MapCatalog.swift in Sources */,
 				A1B0TC2505210002 /* BotCatalog.swift in Sources */,
@@ -1904,6 +1919,8 @@
 				A1GPAD2505310012 /* GamepadConfig.swift in Sources */,
 				A1GPAD2505310014 /* GamepadCapture.swift in Sources */,
 				A1GPAD2505310016 /* GamepadConfigViewController.swift in Sources */,
+				A1GPAD2506010002 /* GamepadInputManager.swift in Sources */,
+				A1GPAD2506010005 /* GamepadDebugLog.swift in Sources */,
 				A1FRED2505200003 /* GameSession.swift in Sources */,
 				A1FRED2505200006 /* MapCatalog.swift in Sources */,
 				A1B0TC2505210004 /* BotCatalog.swift in Sources */,

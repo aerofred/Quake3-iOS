@@ -12,8 +12,11 @@ final class GamepadCapture {
     private var attachedController: GCController?
 
     func start() {
+        GamepadInputManager.shared.isConfigCaptureActive = true
         stopHandlers()
         GCController.startWirelessControllerDiscovery(completionHandler: nil)
+        let count = GCController.controllers().count
+        GamepadDebugLog.log("GamepadCapture.start: controllers=\(count)")
         attachHandlers(to: GCController.controllers().first)
 
         connectObserver = NotificationCenter.default.addObserver(
@@ -27,6 +30,7 @@ final class GamepadCapture {
     }
 
     func stop() {
+        GamepadInputManager.shared.isConfigCaptureActive = false
         if let connectObserver {
             NotificationCenter.default.removeObserver(connectObserver)
             self.connectObserver = nil
@@ -36,8 +40,12 @@ final class GamepadCapture {
 
     private func attachHandlers(to controller: GCController?) {
         stopHandlers()
-        guard let gamepad = controller?.extendedGamepad else { return }
+        guard let controller, let gamepad = controller.extendedGamepad else {
+            GamepadDebugLog.log("GamepadCapture: no extendedGamepad to attach")
+            return
+        }
 
+        GamepadDebugLog.log("GamepadCapture: attached \(GamepadDebugLog.describe(controller))")
         attachedController = controller
         gamepad.valueChangedHandler = { [weak self] pad, _ in
             self?.process(gamepad: pad)

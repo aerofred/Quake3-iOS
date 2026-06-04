@@ -1455,6 +1455,11 @@ void Com_InitZoneMemory( void ) {
 
 }
 
+qboolean Com_ZoneInitialized( void )
+{
+	return mainzone != NULL;
+}
+
 /*
 =================
 Hunk_Log

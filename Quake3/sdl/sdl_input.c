@@ -496,6 +496,11 @@ struct
 	unsigned int oldhats;
 } stick_state;
 
+#ifdef IOS
+static void IN_IosEnsureJoystickHints( void );
+static int IN_IosPickJoystickIndex( int total );
+static qboolean IN_IosNameIsAccelerometer( const char *name );
+#endif
 
 /*
 ===============
@@ -517,6 +522,18 @@ static void IN_InitJoystick( void )
 	stick = NULL;
 	gamepad = NULL;
 	memset(&stick_state, '\0', sizeof (stick_state));
+
+	/* GamepadInputManager may call IN_IosRefreshJoystick before IN_Init(). */
+	if ( !in_joystick ) {
+		in_joystick = Cvar_Get( "in_joystick", "0", CVAR_ARCHIVE|CVAR_LATCH );
+	}
+	if ( !in_joystickThreshold ) {
+		in_joystickThreshold = Cvar_Get( "joy_threshold", "0.15", CVAR_ARCHIVE );
+	}
+
+#ifdef IOS
+	IN_IosEnsureJoystickHints();
+#endif
 
 	// SDL 2.0.4 requires SDL_INIT_JOYSTICK to be initialized separately from
 	// SDL_INIT_GAMECONTROLLER for SDL_JoystickOpen() to work correctly,
@@ -556,6 +573,23 @@ static void IN_InitJoystick( void )
 
 	Cvar_Get( "in_availableJoysticks", buf, CVAR_ROM );
 
+#ifdef IOS
+	/* Bluetooth pads (e.g. GameSir X2s in DS4 mode) may be present even when in_joystick is 0. */
+	if ( total > 0 && !in_joystick->integer ) {
+		Cvar_Set( "in_joystick", "1" );
+	}
+	/* Load SDL mapping DB entry if present so SDL_GameControllerOpen can succeed. */
+	for ( i = 0; i < total; i++ ) {
+		SDL_JoystickGUID guid = SDL_JoystickGetDeviceGUID( i );
+		char *mapping = SDL_GameControllerMappingForGUID( guid );
+
+		if ( mapping ) {
+			SDL_GameControllerAddMapping( mapping );
+			SDL_free( mapping );
+		}
+	}
+#endif
+
 	if( !in_joystick->integer ) {
 		Com_DPrintf( "Joystick is not active.\n" );
 		SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
@@ -563,10 +597,49 @@ static void IN_InitJoystick( void )
 	}
 
 	in_joystickNo = Cvar_Get( "in_joystickNo", "0", CVAR_ARCHIVE );
+#ifdef IOS
+	{
+		int pick = IN_IosPickJoystickIndex( total );
+		char pickBuf[16];
+
+		if ( pick < 0 ) {
+			if ( gamepad ) {
+				SDL_GameControllerClose( gamepad );
+				gamepad = NULL;
+			}
+			if ( stick ) {
+				SDL_JoystickClose( stick );
+				stick = NULL;
+			}
+			Sys_GamepadEngineLog(
+				"ERREUR: aucune manette SDL (seul l'accelerometre iOS ?). Verifiez Bluetooth DS4 puis relancez." );
+			Com_DPrintf( "IN_InitJoystick: no usable joystick (accelerometer only?)\n" );
+			return;
+		}
+
+		if ( pick != in_joystickNo->integer ) {
+			Com_sprintf( pickBuf, sizeof( pickBuf ), "%d", pick );
+			Cvar_Set( "in_joystickNo", pickBuf );
+			in_joystickNo = Cvar_Get( "in_joystickNo", pickBuf, CVAR_ARCHIVE );
+		}
+
+		Com_sprintf( pickBuf, sizeof( pickBuf ),
+			"IN_InitJoystick: using SDL index %d (%s)",
+			pick,
+			SDL_JoystickNameForIndex( pick ) ? SDL_JoystickNameForIndex( pick ) : "?" );
+		Sys_GamepadEngineLog( pickBuf );
+	}
+#else
 	if( in_joystickNo->integer < 0 || in_joystickNo->integer >= total )
 		Cvar_Set( "in_joystickNo", "0" );
+#endif
 
 	in_joystickUseAnalog = Cvar_Get( "in_joystickUseAnalog", "0", CVAR_ARCHIVE );
+#ifdef IOS
+	if ( !in_joystickUseAnalog->integer ) {
+		Cvar_Set( "in_joystickUseAnalog", "1" );
+	}
+#endif
 
 	stick = SDL_JoystickOpen( in_joystickNo->integer );
 
@@ -587,9 +660,177 @@ static void IN_InitJoystick( void )
 	Com_DPrintf( "Use Analog: %s\n", in_joystickUseAnalog->integer ? "Yes" : "No" );
 	Com_DPrintf( "Is gamepad: %s\n", gamepad ? "Yes" : "No" );
 
+#ifdef IOS
+	SDL_JoystickEventState( SDL_ENABLE );
+	SDL_GameControllerEventState( SDL_ENABLE );
+	Sys_GamepadEngineLog( "SDL joystick/gamecontroller events enabled" );
+#else
 	SDL_JoystickEventState(SDL_QUERY);
 	SDL_GameControllerEventState(SDL_QUERY);
+#endif
 }
+
+#ifdef IOS
+static qboolean IN_IosNameIsAccelerometer( const char *name )
+{
+	return ( name && Q_stristr( name, "accelerometer" ) != NULL );
+}
+
+static void IN_IosEnsureJoystickHints( void )
+{
+	SDL_SetHint( SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0" );
+}
+
+static int IN_IosPickJoystickIndex( int total )
+{
+	int i, best = -1, bestScore = -1;
+	const char *name;
+
+	for ( i = 0; i < total; i++ ) {
+		name = SDL_JoystickNameForIndex( i );
+		if ( IN_IosNameIsAccelerometer( name ) ) {
+			continue;
+		}
+
+		if ( SDL_IsGameController( i ) ) {
+			return i;
+		}
+
+		if ( name ) {
+			if ( Q_stristr( name, "controller" ) || Q_stristr( name, "dualshock" ) ||
+				Q_stristr( name, "wireless" ) || Q_stristr( name, "gamepad" ) ||
+				Q_stristr( name, "gamesir" ) || Q_stristr( name, "xbox" ) ) {
+				if ( bestScore < 50 ) {
+					bestScore = 50;
+					best = i;
+				}
+			} else if ( best < 0 ) {
+				best = i;
+				bestScore = 1;
+			}
+		} else if ( best < 0 ) {
+			best = i;
+			bestScore = 1;
+		}
+	}
+
+	return best;
+}
+
+static void IN_IosLogJoystickList( int total )
+{
+	int i;
+	char line[256];
+	const char *name;
+
+	Com_sprintf( line, sizeof( line ), "SDL_NumJoysticks=%d:", total );
+	Sys_GamepadEngineLog( line );
+
+	for ( i = 0; i < total; i++ ) {
+		name = SDL_JoystickNameForIndex( i );
+		Com_sprintf( line, sizeof( line ), "  [%d] %s gc=%s%s",
+			i,
+			name ? name : "(null)",
+			SDL_IsGameController( i ) ? "yes" : "no",
+			IN_IosNameIsAccelerometer( name ) ? " (SKIP accelerometer)" : "" );
+		Sys_GamepadEngineLog( line );
+	}
+}
+
+/*
+===============
+IN_IosRefreshJoystick
+===============
+*/
+void IN_IosRefreshJoystick( qboolean openDevice )
+{
+	int i;
+	int total;
+
+	IN_IosEnsureJoystickHints();
+
+	if ( !SDL_WasInit( SDL_INIT_JOYSTICK ) ) {
+		SDL_Init( SDL_INIT_JOYSTICK );
+	}
+	if ( !SDL_WasInit( SDL_INIT_GAMECONTROLLER ) ) {
+		SDL_Init( SDL_INIT_GAMECONTROLLER );
+	}
+
+	total = SDL_NumJoysticks();
+	Com_Printf( "IN_IosRefreshJoystick: SDL_NumJoysticks=%d openDevice=%d in_joystick=%d\n",
+		total, openDevice, in_joystick ? in_joystick->integer : 0 );
+
+	IN_IosLogJoystickList( total );
+
+	for ( i = 0; i < total; i++ ) {
+		const char *name = SDL_JoystickNameForIndex( i );
+		Com_Printf( "  SDL joystick[%d]: %s gameController=%s\n",
+			i,
+			name ? name : "(null)",
+			SDL_IsGameController( i ) ? "yes" : "no" );
+	}
+
+	if ( total > 0 && openDevice ) {
+		if ( !Com_ZoneInitialized() ) {
+			Com_DPrintf( "IN_IosRefreshJoystick: defer open (zone not ready)\n" );
+			return;
+		}
+		IN_InitJoystick();
+		Com_Printf( "IN_IosRefreshJoystick: opened=%s gamepad=%s stick=%s\n",
+			( gamepad || stick ) ? "yes" : "no",
+			gamepad ? "yes" : "no",
+			stick ? "yes" : "no" );
+
+		/*
+		 * Touch move stick writes CL_JoystickEvent on axis 0 with j_yaw_axis=0.
+		 * SDL right-stick look also used axis 0 → constant spin / fighting inputs.
+		 * Route gamepad look to axis 2 (default Quake layout) and clear stale axes.
+		 */
+		if ( gamepad || stick ) {
+			int a;
+
+			Cvar_Set( "j_yaw_axis", "2" );
+			for ( a = 0; a < MAX_JOYSTICK_AXIS; a++ ) {
+				CL_JoystickEvent( a, 0, Sys_Milliseconds() );
+			}
+			Com_Printf( "IN_IosRefreshJoystick: j_yaw_axis=2 for SDL look (touch stays on axis 0)\n" );
+		}
+	}
+}
+
+void IN_IosCloseJoystick( void )
+{
+	int a;
+
+	if ( gamepad ) {
+		SDL_GameControllerClose( gamepad );
+		gamepad = NULL;
+	}
+
+	if ( stick ) {
+		SDL_JoystickClose( stick );
+		stick = NULL;
+	}
+
+	memset( &stick_state, '\0', sizeof( stick_state ) );
+
+	Cvar_Set( "j_yaw_axis", "0" );
+	for ( a = 0; a < MAX_JOYSTICK_AXIS; a++ ) {
+		CL_JoystickEvent( a, 0, Sys_Milliseconds() );
+	}
+}
+
+int Sys_SDLGamepadOpened( void )
+{
+	if ( gamepad ) {
+		return 2;
+	}
+	if ( stick ) {
+		return 1;
+	}
+	return 0;
+}
+#endif
 
 /*
 ===============
@@ -691,23 +932,299 @@ static qboolean KeyToAxisAndSign(int keynum, int *outAxis, int *outSign)
 
 /*
 ===============
-IN_GamepadMove
+IN_PadMove
+
+Feed PAD0_* keys (GamepadConfig binds) from SDL GameController or, on iOS, a raw
+Bluetooth joystick when GameController.framework does not see the pad (GameSir HID).
 ===============
 */
-static void IN_GamepadMove( void )
+#ifdef IOS
+static void IN_IosLogPadActivity( int buttonIndex, qboolean pressed, int axisIndex, int axisValue );
+
+static int IN_IosScaleStickAxis( Sint16 axis, float threshold )
+{
+	float f = (float)abs( axis ) / 32767.0f;
+
+	if ( f < threshold ) {
+		return 0;
+	}
+
+	f = ( f - threshold ) / ( 1.0f - threshold );
+	if ( f > 1.0f ) {
+		f = 1.0f;
+	}
+
+	return (int)( 127.0f * f ) * ( axis < 0 ? -1 : 1 );
+}
+
+/*
+===============
+IN_IosDirectPadMove
+
+DS4 / GameSir on iOS often appear as a raw SDL joystick (not GameController).
+Drive j_forward_axis / j_side_axis / j_yaw_axis directly and emit PAD0 keys.
+===============
+*/
+static void IN_IosDirectPadMove( void )
+{
+	int i, numAxes, numButtons, scaled, axis;
+	float threshold, lookThreshold;
+	qboolean pressed;
+	static qboolean didLog;
+
+	if ( !stick ) {
+		return;
+	}
+
+	if ( IN_IosNameIsAccelerometer( SDL_JoystickName( stick ) ) ) {
+		Sys_GamepadEngineLog( "ERREUR: joystick ouvert = accelerometre iOS, re-scan manette..." );
+		IN_ShutdownJoystick();
+		IN_InitJoystick();
+		if ( !stick || IN_IosNameIsAccelerometer( SDL_JoystickName( stick ) ) ) {
+			return;
+		}
+	}
+
+	SDL_JoystickUpdate();
+
+	threshold = ( in_joystickThreshold && in_joystickThreshold->value > 0.01f )
+		? in_joystickThreshold->value : 0.15f;
+	lookThreshold = threshold < 0.22f ? 0.22f : threshold;
+
+	if ( !didLog ) {
+		char buf[256];
+		numAxes = SDL_JoystickNumAxes( stick );
+		numButtons = SDL_JoystickNumButtons( stick );
+		Com_sprintf( buf, sizeof( buf ),
+			"IN_IosDirectPadMove: \"%s\" axes=%d buttons=%d (poll path)",
+			SDL_JoystickName( stick ) ? SDL_JoystickName( stick ) : "?",
+			numAxes, numButtons );
+		Sys_GamepadEngineLog( buf );
+		didLog = qtrue;
+	}
+
+	numAxes = SDL_JoystickNumAxes( stick );
+
+	/* Left stick -> move (j_side_axis=4, j_forward_axis=1, j_forward=-2). */
+	if ( numAxes > 0 ) {
+		scaled = IN_IosScaleStickAxis( SDL_JoystickGetAxis( stick, 0 ), threshold );
+		if ( scaled != stick_state.oldaaxes[4] ) {
+			CL_JoystickEvent( 4, scaled, Sys_Milliseconds() );
+			stick_state.oldaaxes[4] = scaled;
+		}
+	}
+	if ( numAxes > 1 ) {
+		scaled = -IN_IosScaleStickAxis( SDL_JoystickGetAxis( stick, 1 ), threshold );
+		if ( scaled != stick_state.oldaaxes[1] ) {
+			CL_JoystickEvent( 1, scaled, Sys_Milliseconds() );
+			stick_state.oldaaxes[1] = scaled;
+		}
+	}
+
+	/* Right stick X -> look (j_yaw_axis=2). */
+	if ( numAxes > 2 ) {
+		scaled = IN_IosScaleStickAxis( SDL_JoystickGetAxis( stick, 2 ), lookThreshold );
+		if ( scaled != stick_state.oldaaxes[2] ) {
+			CL_JoystickEvent( 2, scaled, Sys_Milliseconds() );
+			stick_state.oldaaxes[2] = scaled;
+		}
+	}
+
+	/* Triggers on axes 4/5 (common PS4 HID layout). */
+	for ( i = 4; i <= 5 && i < numAxes; i++ ) {
+		axis = SDL_JoystickGetAxis( stick, i );
+		pressed = ( axis > 16384 );
+		if ( i == 5 ) {
+			if ( pressed != stick_state.buttons[SDL_CONTROLLER_BUTTON_MAX] ) {
+				IN_IosLogPadActivity( -1, pressed, i, axis );
+				Com_QueueEvent( in_eventTime, SE_KEY, K_PAD0_RIGHTTRIGGER, pressed, 0, NULL );
+				stick_state.buttons[SDL_CONTROLLER_BUTTON_MAX] = pressed;
+			}
+		}
+	}
+
+	numButtons = SDL_JoystickNumButtons( stick );
+	if ( numButtons > SDL_CONTROLLER_BUTTON_MAX ) {
+		numButtons = SDL_CONTROLLER_BUTTON_MAX;
+	}
+
+	for ( i = 0; i < numButtons; i++ ) {
+		pressed = ( SDL_JoystickGetButton( stick, i ) != 0 );
+		if ( pressed != stick_state.buttons[i] ) {
+			IN_IosLogPadActivity( i, pressed, -1, 0 );
+			Com_QueueEvent( in_eventTime, SE_KEY, K_PAD0_A + i, pressed, 0, NULL );
+			stick_state.buttons[i] = pressed;
+		}
+	}
+
+	/* R2 as button 9 when triggers are buttons not axes. */
+	if ( numButtons > 9 ) {
+		pressed = ( SDL_JoystickGetButton( stick, 9 ) != 0 );
+		if ( pressed != stick_state.buttons[SDL_CONTROLLER_BUTTON_MAX] ) {
+			Com_QueueEvent( in_eventTime, SE_KEY, K_PAD0_RIGHTTRIGGER, pressed, 0, NULL );
+			stick_state.buttons[SDL_CONTROLLER_BUTTON_MAX] = pressed;
+		}
+	}
+}
+
+static void IN_IosLogPadActivity( int buttonIndex, qboolean pressed, int axisIndex, int axisValue )
+{
+	static int lastLogTime;
+	int now = Sys_Milliseconds();
+
+	if ( now - lastLogTime < 400 ) {
+		return;
+	}
+	lastLogTime = now;
+
+	if ( buttonIndex >= 0 ) {
+		char buf[128];
+		Com_sprintf( buf, sizeof( buf ), "input: button[%d] %s (PAD0+%d)",
+			buttonIndex, pressed ? "down" : "up", buttonIndex );
+		Sys_GamepadEngineLog( buf );
+		return;
+	}
+
+	if ( axisIndex >= 0 && ( axisValue > 8000 || axisValue < -8000 ) ) {
+		char buf[128];
+		Com_sprintf( buf, sizeof( buf ), "input: axis[%d]=%d", axisIndex, axisValue );
+		Sys_GamepadEngineLog( buf );
+	}
+}
+
+static int iosJoyMoveFrames = 0;
+static int iosJoyEventCount = 0;
+
+static void IN_IosJoyAxisEvent( int axis, Sint16 value )
+{
+	float threshold, lookThreshold;
+	int scaled;
+
+	iosJoyEventCount++;
+
+	threshold = ( in_joystickThreshold && in_joystickThreshold->value > 0.01f )
+		? in_joystickThreshold->value : 0.15f;
+	lookThreshold = threshold < 0.22f ? 0.22f : threshold;
+
+	switch ( axis ) {
+	case 0:
+		scaled = IN_IosScaleStickAxis( value, threshold );
+		if ( scaled != stick_state.oldaaxes[4] ) {
+			CL_JoystickEvent( 4, scaled, Sys_Milliseconds() );
+			stick_state.oldaaxes[4] = scaled;
+			IN_IosLogPadActivity( -1, qfalse, 0, value );
+		}
+		break;
+	case 1:
+		scaled = -IN_IosScaleStickAxis( value, threshold );
+		if ( scaled != stick_state.oldaaxes[1] ) {
+			CL_JoystickEvent( 1, scaled, Sys_Milliseconds() );
+			stick_state.oldaaxes[1] = scaled;
+			IN_IosLogPadActivity( -1, qfalse, 1, value );
+		}
+		break;
+	case 2:
+		scaled = IN_IosScaleStickAxis( value, lookThreshold );
+		if ( scaled != stick_state.oldaaxes[2] ) {
+			CL_JoystickEvent( 2, scaled, Sys_Milliseconds() );
+			stick_state.oldaaxes[2] = scaled;
+			IN_IosLogPadActivity( -1, qfalse, 2, value );
+		}
+		break;
+	case 5:
+		{
+			qboolean pressed = ( value > 16384 );
+			if ( pressed != stick_state.buttons[SDL_CONTROLLER_BUTTON_MAX] ) {
+				Com_QueueEvent( in_eventTime, SE_KEY, K_PAD0_RIGHTTRIGGER, pressed, 0, NULL );
+				stick_state.buttons[SDL_CONTROLLER_BUTTON_MAX] = pressed;
+				IN_IosLogPadActivity( -1, pressed, 5, value );
+			}
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static void IN_IosJoyButtonEvent( int button, qboolean pressed )
+{
+	if ( button < 0 || button >= SDL_CONTROLLER_BUTTON_MAX ) {
+		return;
+	}
+
+	iosJoyEventCount++;
+
+	if ( pressed != stick_state.buttons[button] ) {
+		int key = K_PAD0_A + button;
+
+		if ( button == 9 ) {
+			key = K_PAD0_RIGHTTRIGGER;
+		}
+
+		Com_QueueEvent( in_eventTime, SE_KEY, key, pressed, 0, NULL );
+		stick_state.buttons[button] = pressed;
+		IN_IosLogPadActivity( button, pressed, -1, 0 );
+	}
+}
+
+void IN_IosDebugPadState( char *buf, int bufsize )
+{
+	int rawAxis0 = 0;
+
+	if ( buf && bufsize > 0 ) {
+		buf[0] = '\0';
+	}
+
+	if ( !buf || bufsize < 32 ) {
+		return;
+	}
+
+	if ( stick && SDL_JoystickNumAxes( stick ) > 0 ) {
+		rawAxis0 = SDL_JoystickGetAxis( stick, 0 );
+	}
+
+	Com_sprintf( buf, bufsize,
+		"engine: stick=%s gamepad=%s joyMoves=%d joyEvents=%d catcher=%d cl.state=%d axis0raw=%d name=%s",
+		stick ? "yes" : "no",
+		gamepad ? "yes" : "no",
+		iosJoyMoveFrames,
+		iosJoyEventCount,
+		Key_GetCatcher(),
+		clc.state,
+		rawAxis0,
+		( stick && SDL_JoystickName( stick ) ) ? SDL_JoystickName( stick ) : "-" );
+}
+#endif
+
+static void IN_PadMove( void )
 {
 	int i;
 	int translatedAxes[MAX_JOYSTICK_AXIS];
 	qboolean translatedAxesSet[MAX_JOYSTICK_AXIS];
 
-	SDL_GameControllerUpdate();
+	if ( !gamepad && !stick )
+		return;
+
+	if ( gamepad )
+		SDL_GameControllerUpdate();
+	else
+		SDL_JoystickUpdate();
 
 	// check buttons
 	for (i = 0; i < SDL_CONTROLLER_BUTTON_MAX; i++)
 	{
-		qboolean pressed = SDL_GameControllerGetButton(gamepad, SDL_CONTROLLER_BUTTON_A + i);
+		qboolean pressed = qfalse;
+
+		if ( gamepad )
+			pressed = SDL_GameControllerGetButton( gamepad, (SDL_GameControllerButton)i );
+		else if ( i < SDL_JoystickNumButtons( stick ) )
+			pressed = ( SDL_JoystickGetButton( stick, i ) != 0 );
+
 		if (pressed != stick_state.buttons[i])
 		{
+#ifdef IOS
+			IN_IosLogPadActivity( i, pressed, -1, 0 );
+#endif
 			Com_QueueEvent(in_eventTime, SE_KEY, K_PAD0_A + i, pressed, 0, NULL);
 			stick_state.buttons[i] = pressed;
 		}
@@ -727,11 +1244,28 @@ static void IN_GamepadMove( void )
 	// check axes
 	for (i = 0; i < SDL_CONTROLLER_AXIS_MAX; i++)
 	{
-		int axis = SDL_GameControllerGetAxis(gamepad, SDL_CONTROLLER_AXIS_LEFTX + i);
+		int axis;
+
+		if ( gamepad )
+			axis = SDL_GameControllerGetAxis( gamepad, (SDL_GameControllerAxis)i );
+		else if ( i < SDL_JoystickNumAxes( stick ) )
+			axis = SDL_JoystickGetAxis( stick, i );
+		else
+			continue;
 		int oldAxis = stick_state.oldaaxes[i];
+		float threshold = in_joystickThreshold->value;
+
+#ifdef IOS
+		/* Right stick look axes: extra dead zone reduces idle spin on Bluetooth pads. */
+		if ( !gamepad && ( i == SDL_CONTROLLER_AXIS_RIGHTX || i == SDL_CONTROLLER_AXIS_RIGHTY ) ) {
+			if ( threshold < 0.22f ) {
+				threshold = 0.22f;
+			}
+		}
+#endif
 
 		// Smoothly ramp from dead zone to maximum value
-		float f = ((float)abs(axis) / 32767.0f - in_joystickThreshold->value) / (1.0f - in_joystickThreshold->value);
+		float f = ((float)abs(axis) / 32767.0f - threshold) / (1.0f - threshold);
 
 		if (f < 0.0f)
 			f = 0.0f;
@@ -740,6 +1274,11 @@ static void IN_GamepadMove( void )
 
 		if (axis != oldAxis)
 		{
+#ifdef IOS
+			if ( !gamepad ) {
+				IN_IosLogPadActivity( -1, qfalse, i, axis );
+			}
+#endif
 			const int negMap[SDL_CONTROLLER_AXIS_MAX] = { K_PAD0_LEFTSTICK_LEFT,  K_PAD0_LEFTSTICK_UP,   K_PAD0_RIGHTSTICK_LEFT,  K_PAD0_RIGHTSTICK_UP, 0, 0 };
 			const int posMap[SDL_CONTROLLER_AXIS_MAX] = { K_PAD0_LEFTSTICK_RIGHT, K_PAD0_LEFTSTICK_DOWN, K_PAD0_RIGHTSTICK_RIGHT, K_PAD0_RIGHTSTICK_DOWN, K_PAD0_LEFTTRIGGER, K_PAD0_RIGHTTRIGGER };
 
@@ -830,14 +1369,30 @@ static void IN_JoyMove( void )
 	int total = 0;
 	int i = 0;
 
+#ifdef IOS
+	/* Swift GameController path owns input when a pad is attached there. */
+	if ( Sys_NativeGamepadActive() ) {
+		return;
+	}
+#endif
+
 	if (gamepad)
 	{
-		IN_GamepadMove();
+		IN_PadMove();
 		return;
 	}
 
 	if (!stick)
 		return;
+
+#ifdef IOS
+	iosJoyMoveFrames++;
+	/* Raw Bluetooth joystick (DS4 via SDL, GC=0): direct axis/key routing. */
+	if ( !gamepad ) {
+		IN_IosDirectPadMove();
+		return;
+	}
+#endif
 
 	SDL_JoystickUpdate();
 
@@ -1168,6 +1723,56 @@ static void IN_ProcessEvents( void )
 				}
 				break;
 
+			case SDL_JOYAXISMOTION:
+#ifdef IOS
+				if ( !Sys_NativeGamepadActive() && stick && e.jaxis.which == SDL_JoystickInstanceID( stick ) ) {
+					IN_IosJoyAxisEvent( e.jaxis.axis, e.jaxis.value );
+				}
+#endif
+				break;
+
+			case SDL_JOYBUTTONDOWN:
+#ifdef IOS
+				if ( !Sys_NativeGamepadActive() && stick && e.jbutton.which == SDL_JoystickInstanceID( stick ) ) {
+					IN_IosJoyButtonEvent( e.jbutton.button, qtrue );
+				}
+#endif
+				break;
+
+			case SDL_JOYBUTTONUP:
+#ifdef IOS
+				if ( !Sys_NativeGamepadActive() && stick && e.jbutton.which == SDL_JoystickInstanceID( stick ) ) {
+					IN_IosJoyButtonEvent( e.jbutton.button, qfalse );
+				}
+#endif
+				break;
+
+			case SDL_CONTROLLERAXISMOTION:
+#ifdef IOS
+				if ( !Sys_NativeGamepadActive() && gamepad ) {
+					IN_IosJoyAxisEvent( e.caxis.axis, e.caxis.value );
+				}
+#endif
+				break;
+
+			case SDL_CONTROLLERBUTTONDOWN:
+#ifdef IOS
+				if ( !Sys_NativeGamepadActive() && gamepad ) {
+					IN_IosJoyButtonEvent( e.cbutton.button, qtrue );
+				}
+#endif
+				break;
+
+			case SDL_CONTROLLERBUTTONUP:
+#ifdef IOS
+				if ( !Sys_NativeGamepadActive() && gamepad ) {
+					IN_IosJoyButtonEvent( e.cbutton.button, qfalse );
+				}
+#endif
+				break;
+
+			case SDL_JOYDEVICEADDED:
+			case SDL_JOYDEVICEREMOVED:
 			case SDL_CONTROLLERDEVICEADDED:
 			case SDL_CONTROLLERDEVICEREMOVED:
 				if (in_joystick->integer)
@@ -1280,6 +1885,22 @@ IN_Frame
 void IN_Frame( void )
 {
 	qboolean loading;
+
+#ifdef IOS
+	/* Controllers often connect after the engine starts on iOS (GameSir, etc.). */
+	if ( !gamepad && !stick )
+	{
+		static int lastJoyProbe = 0;
+		int now = Sys_Milliseconds();
+
+		if ( now - lastJoyProbe > 500 )
+		{
+			lastJoyProbe = now;
+			if ( SDL_NumJoysticks() > 0 )
+				IN_InitJoystick();
+		}
+	}
+#endif
 
 	IN_JoyMove( );
 

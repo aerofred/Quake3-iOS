@@ -52,6 +52,15 @@ void Sys_GetViewport4x3( int *x, int *y, int *width, int *height );
 void Sys_SetSDLWindowVisible( qboolean visible );
 void Sys_SetIOSMainLoopPaused( qboolean paused );
 qboolean Sys_IsIOSMainLoopPaused( void );
+void Sys_SetNativeGamepadActive( qboolean active );
+qboolean Sys_NativeGamepadActive( void );
+int Sys_SDLJoystickCount( void );
+qboolean Sys_IsEngineMemoryReady( void );
+void Sys_GamepadEngineLog( const char *msg );
+void IN_IosDebugPadState( char *buf, int bufsize );
+void IN_IosRefreshJoystick( qboolean openDevice );
+void IN_IosCloseJoystick( void );
+int Sys_SDLGamepadOpened( void );
 int Sys_SafeAreaTop( void );
 int Sys_SafeAreaLeft( void );
 int Sys_SafeAreaBottom( void );
@@ -61,6 +70,7 @@ void Cbuf_AddText( const char *text );
 void Cbuf_Execute( void );
 
 int Key_GetCatcher( void );
+int Key_StringToKeynum( char *str );
 
 int CL_GetCvarInt( const char *name );
 float CL_GetCvarFloat( const char *name );

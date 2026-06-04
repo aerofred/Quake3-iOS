@@ -947,6 +947,7 @@ void *S_Malloc( int size );			// NOT 0 filled memory only for small allocations
 void Z_Free( void *ptr );
 void Z_FreeTags( int tag );
 int Z_AvailableMemory( void );
+qboolean Com_ZoneInitialized( void );
 void Z_LogHeap( void );
 
 void Hunk_Clear( void );

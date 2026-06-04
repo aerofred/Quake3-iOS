@@ -1187,6 +1187,12 @@ void CL_ParseBinding( int key, qboolean down, unsigned time )
 
 	// run all bind commands if console, ui, etc aren't reading keys
 	allCommands = ( Key_GetCatcher( ) == 0 );
+#ifdef IOS
+	/* Allow +attack/+forward etc. during active gameplay even if UI catcher is set. */
+	if ( clc.state == CA_ACTIVE && !( Key_GetCatcher() & ( KEYCATCH_CONSOLE | KEYCATCH_MESSAGE ) ) ) {
+		allCommands = qtrue;
+	}
+#endif
 
 	// allow button up commands if in game even if key catcher is set
 	allowUpCmds = ( clc.state != CA_DISCONNECTED );

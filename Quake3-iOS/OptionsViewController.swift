@@ -35,6 +35,11 @@ class OptionsViewController: UIViewController {
         // Do any additional setup after loading the view.
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        FrontendUI.activate()
+    }
+
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
@@ -386,6 +391,7 @@ private extension OptionsViewController {
     }
 
     @objc func openGamepadConfig() {
+        FrontendUI.activate()
         navigationController?.pushViewController(GamepadConfigViewController(), animated: true)
     }
 

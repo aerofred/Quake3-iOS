@@ -66,6 +66,18 @@ qboolean Sys_IsIOSMainLoopPaused( void )
 	return sys_iosMainLoopPaused;
 }
 
+static volatile qboolean sys_nativeGamepadActive = qfalse;
+
+void Sys_SetNativeGamepadActive( qboolean active )
+{
+	sys_nativeGamepadActive = active;
+}
+
+qboolean Sys_NativeGamepadActive( void )
+{
+	return sys_nativeGamepadActive;
+}
+
 static void Sys_IOSPumpRunLoop( double seconds )
 {
 	CFRunLoopRunInMode( kCFRunLoopDefaultMode, seconds, true );
@@ -762,6 +774,11 @@ int main( int argc, char **argv )
 {
 	int   i;
 	char  commandLine[ MAX_STRING_CHARS ] = { 0 };
+
+#ifdef IOS
+	/* Must be set before SDL_Init(SDL_INIT_JOYSTICK) or iOS lists the accelerometer as joystick 0. */
+	SDL_SetHint( SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0" );
+#endif
     
 #ifndef IOS
 

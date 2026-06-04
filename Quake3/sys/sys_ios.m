@@ -17,8 +17,27 @@
 #endif
 
 #include <SDL_syswm.h>
+#include <SDL.h>
 
 extern SDL_Window *SDL_window;
+
+int Sys_SDLJoystickCount( void ) {
+    if ( !SDL_WasInit( SDL_INIT_JOYSTICK ) ) {
+        return 0;
+    }
+    return SDL_NumJoysticks();
+}
+
+qboolean Sys_IsEngineMemoryReady( void ) {
+    return Com_ZoneInitialized();
+}
+
+void Sys_GamepadEngineLog( const char *msg ) {
+    if ( !msg || !msg[0] ) {
+        return;
+    }
+    NSLog( @"[Gamepad] %@", [NSString stringWithUTF8String:msg] );
+}
 
 qboolean Sys_LowPhysicalMemory(void) {
     return qtrue;

@@ -6,26 +6,63 @@
 import UIKit
 
 final class GamepadConfigViewController: UIViewController {
+    private enum Section: Int, CaseIterable {
+        case settings
+        case movement
+        case looking
+        case weapons
+        case misc
+
+        var title: String? {
+            switch self {
+            case .settings: return "Settings"
+            case .movement: return GamepadActionSection.movement.rawValue
+            case .looking: return GamepadActionSection.looking.rawValue
+            case .weapons: return GamepadActionSection.weapons.rawValue
+            case .misc: return GamepadActionSection.misc.rawValue
+            }
+        }
+
+        var gamepadSection: GamepadActionSection? {
+            switch self {
+            case .movement: return .movement
+            case .looking: return .looking
+            case .weapons: return .weapons
+            case .misc: return .misc
+            default: return nil
+            }
+        }
+    }
+
+    private enum SettingsRow: Int, CaseIterable {
+        case sensitivity
+        case deadZone
+        case reset
+    }
+
     private let config = GamepadConfig.shared
     private let capture = GamepadCapture()
+    private let backButton = UIButton(type: .system)
     private let tableView = UITableView(frame: .zero, style: .grouped)
     private let captureBanner = UILabel()
-    private let sensitivitySlider = UISlider()
-    private let deadZoneSlider = UISlider()
-    private let sensitivityValueLabel = UILabel()
-    private let deadZoneValueLabel = UILabel()
+    private var bannerHeightConstraint: NSLayoutConstraint?
 
     private var waitingForCommand: String?
-    private var sections: [GamepadActionSection] = GamepadActionSection.allCases
 
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Gamepad"
         view.backgroundColor = .groupTableViewBackground
+
+        configureBackButton()
+        configureBanner()
         configureTableView()
         configureCapture()
-        updateCaptureBanner()
-        updateSliderLabels()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        FrontendUI.activate()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -38,102 +75,76 @@ final class GamepadConfigViewController: UIViewController {
         }
     }
 
-    private func configureHeader() -> UIView {
-        let sensitivityTitle = makeSectionLabel("Look Sensitivity")
-        configureSlider(
-            sensitivitySlider,
-            min: 1,
-            max: 20,
-            value: config.sensitivity,
-            action: #selector(sliderChanged(_:))
-        )
+    private func configureBackButton() {
+        backButton.translatesAutoresizingMaskIntoConstraints = false
+        backButton.setTitle("BACK", for: .normal)
+        backButton.setTitleColor(.red, for: .normal)
+        backButton.titleLabel?.font = UIFont(name: "AvenirNext-Bold", size: 28) ?? .boldSystemFont(ofSize: 28)
+        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        view.addSubview(backButton)
 
-        let deadZoneTitle = makeSectionLabel("Stick Dead Zone")
-        configureSlider(
-            deadZoneSlider,
-            min: 0.05,
-            max: 0.5,
-            value: config.deadZone,
-            action: #selector(sliderChanged(_:))
-        )
+        NSLayoutConstraint.activate([
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
+            backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 20)
+        ])
+    }
 
-        let resetButton = UIButton(type: .system)
-        resetButton.setTitle("Reset to Defaults", for: .normal)
-        resetButton.setTitleColor(.red, for: .normal)
-        resetButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
-        resetButton.addTarget(self, action: #selector(resetDefaults), for: .touchUpInside)
+    @objc private func backTapped() {
+        navigationController?.popViewController(animated: true)
+    }
 
+    private func configureBanner() {
+        captureBanner.translatesAutoresizingMaskIntoConstraints = false
         captureBanner.textAlignment = .center
         captureBanner.numberOfLines = 0
-        captureBanner.font = .boldSystemFont(ofSize: 16)
+        captureBanner.font = .boldSystemFont(ofSize: 15)
         captureBanner.textColor = .orange
+        captureBanner.backgroundColor = UIColor.orange.withAlphaComponent(0.12)
         captureBanner.isHidden = true
+        captureBanner.layer.cornerRadius = 8
+        captureBanner.clipsToBounds = true
 
-        let headerStack = UIStackView(arrangedSubviews: [
-            captureBanner,
-            sensitivityTitle,
-            makeSliderRow(title: "Sensitivity", slider: sensitivitySlider, valueLabel: sensitivityValueLabel),
-            deadZoneTitle,
-            makeSliderRow(title: "Dead Zone", slider: deadZoneSlider, valueLabel: deadZoneValueLabel),
-            resetButton
-        ])
-        headerStack.axis = .vertical
-        headerStack.spacing = 10
-        headerStack.layoutMargins = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
-        headerStack.isLayoutMarginsRelativeArrangement = true
-        headerStack.translatesAutoresizingMaskIntoConstraints = false
-
-        let container = UIView()
-        container.addSubview(headerStack)
+        view.addSubview(captureBanner)
+        let heightConstraint = captureBanner.heightAnchor.constraint(equalToConstant: 0)
+        bannerHeightConstraint = heightConstraint
         NSLayoutConstraint.activate([
-            headerStack.topAnchor.constraint(equalTo: container.topAnchor),
-            headerStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            headerStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            headerStack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            headerStack.widthAnchor.constraint(equalTo: container.widthAnchor)
+            captureBanner.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 8),
+            captureBanner.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            captureBanner.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            heightConstraint
         ])
-        return container
+    }
+
+    private func updateBannerLayout(visible: Bool, text: String? = nil) {
+        if let text {
+            captureBanner.text = text
+        }
+        captureBanner.isHidden = !visible
+        guard let bannerHeightConstraint else { return }
+        if visible {
+            let width = view.bounds.width - 32
+            let targetWidth = max(200, width)
+            let height = captureBanner.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude)).height
+            bannerHeightConstraint.constant = max(36, height + 16)
+        } else {
+            bannerHeightConstraint.constant = 0
+        }
     }
 
     private func configureTableView() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.dataSource = self
         tableView.delegate = self
+        tableView.alwaysBounceVertical = true
+        tableView.keyboardDismissMode = .onDrag
         view.addSubview(tableView)
 
-        let header = configureHeader()
-        header.layoutIfNeeded()
-        let targetWidth = view.bounds.width > 0 ? view.bounds.width : UIScreen.main.bounds.width
-        let headerHeight = header.systemLayoutSizeFitting(
-            CGSize(width: targetWidth, height: UIView.layoutFittingCompressedSize.height),
-            withHorizontalFittingPriority: .required,
-            verticalFittingPriority: .fittingSizeLevel
-        ).height
-        header.frame = CGRect(x: 0, y: 0, width: targetWidth, height: headerHeight)
-        tableView.tableHeaderView = header
-
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: captureBanner.bottomAnchor, constant: 8),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        guard let header = tableView.tableHeaderView else { return }
-        let targetWidth = tableView.bounds.width
-        guard targetWidth > 0 else { return }
-        let height = header.systemLayoutSizeFitting(
-            CGSize(width: targetWidth, height: UIView.layoutFittingCompressedSize.height),
-            withHorizontalFittingPriority: .required,
-            verticalFittingPriority: .fittingSizeLevel
-        ).height
-        if header.frame.height != height || header.frame.width != targetWidth {
-            header.frame = CGRect(x: 0, y: 0, width: targetWidth, height: height)
-            tableView.tableHeaderView = header
-        }
     }
 
     private func configureCapture() {
@@ -145,69 +156,35 @@ final class GamepadConfigViewController: UIViewController {
         }
     }
 
-    private func makeSectionLabel(_ text: String) -> UILabel {
-        let label = UILabel()
-        label.text = text
-        label.font = .boldSystemFont(ofSize: 20)
-        return label
-    }
-
-    private func configureSlider(_ slider: UISlider, min: Float, max: Float, value: Float, action: Selector) {
-        slider.minimumValue = min
-        slider.maximumValue = max
-        slider.value = value
-        slider.addTarget(self, action: action, for: .valueChanged)
-    }
-
-    private func makeSliderRow(title: String, slider: UISlider, valueLabel: UILabel) -> UIStackView {
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 15)
-
-        valueLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
-        valueLabel.textAlignment = .right
-        valueLabel.widthAnchor.constraint(equalToConstant: 48).isActive = true
-
-        let top = UIStackView(arrangedSubviews: [titleLabel, valueLabel])
-        top.axis = .horizontal
-
-        let row = UIStackView(arrangedSubviews: [top, slider])
-        row.axis = .vertical
-        row.spacing = 4
-        return row
-    }
-
-    private func actions(for section: GamepadActionSection) -> [GamepadAction] {
-        GamepadConfig.allActions.filter { $0.section == section }
+    private func actions(for section: Section) -> [GamepadAction] {
+        guard let gamepadSection = section.gamepadSection else { return [] }
+        return GamepadConfig.allActions.filter { $0.section == gamepadSection }
     }
 
     private func beginCapture(for command: String, label: String) {
         waitingForCommand = command
         capture.start()
-        captureBanner.isHidden = false
-        captureBanner.text = "Press a gamepad button or move a stick for \"\(label)\""
+        updateBannerLayout(
+            visible: true,
+            text: "Press a gamepad button or move a stick for \"\(label)\""
+        )
+        tableView.reloadData()
     }
 
     private func cancelCapture() {
         waitingForCommand = nil
         capture.stop()
-        captureBanner.isHidden = true
-        captureBanner.text = nil
-    }
-
-    private func updateCaptureBanner() {
-        captureBanner.isHidden = waitingForCommand == nil
-    }
-
-    private func updateSliderLabels() {
-        sensitivityValueLabel.text = String(format: "%.1f", sensitivitySlider.value)
-        deadZoneValueLabel.text = String(format: "%.2f", deadZoneSlider.value)
+        updateBannerLayout(visible: false)
+        tableView.reloadData()
     }
 
     @objc private func sliderChanged(_ sender: UISlider) {
-        config.sensitivity = sensitivitySlider.value
-        config.deadZone = deadZoneSlider.value
-        updateSliderLabels()
+        if sender.tag == SettingsRow.sensitivity.rawValue {
+            config.sensitivity = sender.value
+        } else if sender.tag == SettingsRow.deadZone.rawValue {
+            config.deadZone = sender.value
+        }
+        tableView.reloadRows(at: [IndexPath(row: sender.tag, section: Section.settings.rawValue)], with: .none)
     }
 
     @objc private func resetDefaults() {
@@ -220,9 +197,6 @@ final class GamepadConfigViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Reset", style: .destructive) { [weak self] _ in
             self?.cancelCapture()
             self?.config.resetToDefaults()
-            self?.sensitivitySlider.value = self?.config.sensitivity ?? 10
-            self?.deadZoneSlider.value = self?.config.deadZone ?? 0.15
-            self?.updateSliderLabels()
             self?.tableView.reloadData()
         })
         present(alert, animated: true)
@@ -244,52 +218,152 @@ final class GamepadConfigViewController: UIViewController {
             self?.cancelCapture()
         })
 
-        if let popover = sheet.popoverPresentationController {
-            popover.sourceView = tableView
-            popover.sourceRect = tableView.rectForRow(at: indexPath)
+        if let popover = sheet.popoverPresentationController,
+           let cell = tableView.cellForRow(at: indexPath) {
+            popover.sourceView = cell
+            popover.sourceRect = cell.bounds
         }
 
         present(sheet, animated: true)
+    }
+
+    private func makeSliderCell(
+        title: String,
+        value: Float,
+        minimum: Float,
+        maximum: Float,
+        tag: Int
+    ) -> UITableViewCell {
+        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+        cell.selectionStyle = .none
+
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 16)
+
+        let valueLabel = UILabel()
+        valueLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
+        valueLabel.textAlignment = .right
+        valueLabel.text = tag == SettingsRow.sensitivity.rawValue
+            ? String(format: "%.1f", value)
+            : String(format: "%.2f", value)
+        valueLabel.widthAnchor.constraint(equalToConstant: 48).isActive = true
+
+        let labelRow = UIStackView(arrangedSubviews: [titleLabel, valueLabel])
+        labelRow.axis = .horizontal
+        labelRow.spacing = 8
+
+        let slider = UISlider()
+        slider.minimumValue = minimum
+        slider.maximumValue = maximum
+        slider.value = value
+        slider.tag = tag
+        slider.addTarget(self, action: #selector(sliderChanged(_:)), for: .valueChanged)
+
+        let stack = UIStackView(arrangedSubviews: [labelRow, slider])
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        cell.contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 12),
+            stack.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -16),
+            stack.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -12)
+        ])
+
+        return cell
     }
 }
 
 extension GamepadConfigViewController: UITableViewDataSource, UITableViewDelegate {
     func numberOfSections(in tableView: UITableView) -> Int {
-        sections.count
+        Section.allCases.count
     }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        sections[section].rawValue
+        Section(rawValue: section)?.title
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        actions(for: sections[section]).count
+        guard let section = Section(rawValue: section) else { return 0 }
+        switch section {
+        case .settings:
+            return SettingsRow.allCases.count
+        default:
+            return actions(for: section).count
+        }
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let action = actions(for: sections[indexPath.section])[indexPath.row]
-        let identifier = "GamepadCell"
-        let cell = tableView.dequeueReusableCell(withIdentifier: identifier)
-            ?? UITableViewCell(style: .value1, reuseIdentifier: identifier)
-
-        cell.textLabel?.text = action.label
-        cell.detailTextLabel?.text = config.displayName(for: config.input(for: action.command))
-        cell.detailTextLabel?.textColor = .gray
-        cell.accessoryType = .disclosureIndicator
-        cell.selectionStyle = .default
-
-        if waitingForCommand == action.command {
-            cell.backgroundColor = UIColor.orange.withAlphaComponent(0.15)
-        } else {
-            cell.backgroundColor = nil
+        guard let section = Section(rawValue: indexPath.section) else {
+            return UITableViewCell()
         }
 
-        return cell
+        switch section {
+        case .settings:
+            switch SettingsRow(rawValue: indexPath.row) {
+            case .sensitivity:
+                return makeSliderCell(
+                    title: "Look Sensitivity",
+                    value: config.sensitivity,
+                    minimum: 1,
+                    maximum: 20,
+                    tag: SettingsRow.sensitivity.rawValue
+                )
+            case .deadZone:
+                return makeSliderCell(
+                    title: "Stick Dead Zone",
+                    value: config.deadZone,
+                    minimum: 0.05,
+                    maximum: 0.5,
+                    tag: SettingsRow.deadZone.rawValue
+                )
+            case .reset:
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                cell.textLabel?.text = "Reset to Defaults"
+                cell.textLabel?.textColor = .red
+                cell.textLabel?.textAlignment = .center
+                return cell
+            case .none:
+                return UITableViewCell()
+            }
+
+        default:
+            let action = actions(for: section)[indexPath.row]
+            let cell = tableView.dequeueReusableCell(withIdentifier: "GamepadBindingCell")
+                ?? UITableViewCell(style: .value1, reuseIdentifier: "GamepadBindingCell")
+
+            cell.textLabel?.text = action.label
+            cell.detailTextLabel?.text = config.displayName(for: config.input(for: action.command))
+            cell.detailTextLabel?.textColor = .gray
+            cell.accessoryType = .disclosureIndicator
+            cell.selectionStyle = .default
+
+            if waitingForCommand == action.command {
+                cell.backgroundColor = UIColor.orange.withAlphaComponent(0.15)
+            } else {
+                cell.backgroundColor = nil
+            }
+
+            return cell
+        }
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let action = actions(for: sections[indexPath.section])[indexPath.row]
+
+        guard let section = Section(rawValue: indexPath.section) else { return }
+
+        if section == .settings, SettingsRow(rawValue: indexPath.row) == .reset {
+            resetDefaults()
+            return
+        }
+
+        guard section != .settings else { return }
+
+        let action = actions(for: section)[indexPath.row]
         presentActionSheet(for: action, indexPath: indexPath)
     }
 }
