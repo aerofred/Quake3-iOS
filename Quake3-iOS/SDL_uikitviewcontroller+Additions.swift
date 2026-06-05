@@ -1091,10 +1091,10 @@ extension SDL_uikitviewcontroller {
 
         let safeRect = nativeOverlayRect(in: rect)
         let joySize = CGSize(width: 100, height: 100)
-        let margin: CGFloat = 8
         let controlMargin: CGFloat = 22
         let menuSize = CGSize(width: 52, height: 44)
-        let weaponSize = CGSize(width: 48, height: 64)
+        let weaponSize = CGSize(width: 44, height: 44)
+        let weaponGap: CGFloat = 8
         let actionSize: CGFloat = 75
         let lookSize: CGFloat = 58
         let stackGap: CGFloat = 10
@@ -1126,6 +1126,7 @@ extension SDL_uikitviewcontroller {
         let clusterMinX = min(defaultFireFrame.minX, defaultJumpFrame.minX)
         let clusterMaxX = max(defaultFireFrame.maxX, defaultJumpFrame.maxX)
         let clusterMinY = min(defaultFireFrame.minY, defaultJumpFrame.minY)
+        let clusterCenterX = (clusterMinX + clusterMaxX) / 2
         let defaultLookFrame = CGRect(
             x: clusterMinX + (clusterMaxX - clusterMinX - lookSize) / 2,
             y: clusterMinY - stackGap - lookSize,
@@ -1133,6 +1134,24 @@ extension SDL_uikitviewcontroller {
             height: lookSize
         )
         lookButton.frame = offsetFrame(defaultLookFrame, keyPrefix: "touchLook", in: safeRect)
+
+        let weaponPairWidth = weaponSize.width * 2 + weaponGap
+        let defaultWeaponRowY = defaultLookFrame.minY - stackGap - weaponSize.height
+        let defaultPrevWeaponFrame = CGRect(
+            x: clusterCenterX - weaponPairWidth / 2,
+            y: defaultWeaponRowY,
+            width: weaponSize.width,
+            height: weaponSize.height
+        )
+        let defaultNextWeaponFrame = CGRect(
+            x: clusterCenterX - weaponPairWidth / 2 + weaponSize.width + weaponGap,
+            y: defaultWeaponRowY,
+            width: weaponSize.width,
+            height: weaponSize.height
+        )
+        prevWeaponButton.frame = offsetFrame(defaultPrevWeaponFrame, keyPrefix: "touchPrevWeapon", in: safeRect)
+        nextWeaponButton.frame = offsetFrame(defaultNextWeaponFrame, keyPrefix: "touchNextWeapon", in: safeRect)
+
         escapeButton.frame = CGRect(
             x: safeRect.minX + controlMargin,
             y: safeRect.minY + controlMargin,
@@ -1144,18 +1163,6 @@ extension SDL_uikitviewcontroller {
             y: safeRect.minY + controlMargin,
             width: 30,
             height: 30
-        )
-        prevWeaponButton.frame = CGRect(
-            x: safeRect.minX + margin,
-            y: safeRect.midY - weaponSize.height / 2,
-            width: weaponSize.width,
-            height: weaponSize.height
-        )
-        nextWeaponButton.frame = CGRect(
-            x: safeRect.maxX - weaponSize.width - margin,
-            y: safeRect.midY - weaponSize.height / 2,
-            width: weaponSize.width,
-            height: weaponSize.height
         )
     }
 
