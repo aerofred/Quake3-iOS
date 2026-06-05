@@ -213,7 +213,7 @@ final class GamepadConfig {
         return args
     }
 
-    func appendEngineCommands(to buffer: inout String) {
+    func appendBindingCommands(to buffer: inout String) {
         #if os(iOS)
         buffer += "seta in_joystick 1; seta in_joystickUseAnalog 0; "
         #else
@@ -221,8 +221,6 @@ final class GamepadConfig {
         #endif
         buffer += "seta sensitivity \(String(format: "%.1f", sensitivity)); "
         buffer += "seta joy_threshold \(String(format: "%.2f", deadZone)); "
-        buffer += "seta j_yaw_axis 2; seta j_side_axis 4; seta j_side 0.25; seta j_yaw 0; seta j_pitch 0; "
-        buffer += "seta j_forward_axis 1; seta j_forward -2; seta j_yaw 1; seta cl_run 1; "
 
         for (input, command) in bindings.sorted(by: { $0.key < $1.key }) {
             if command.contains(" ") {
@@ -231,6 +229,20 @@ final class GamepadConfig {
                 buffer += "bind \(input) \(command); "
             }
         }
+    }
+
+    /// SDL gamepad path only — do not mix into touch joystick cvars (touch uses j_yaw_axis 0).
+    func appendSDLGamepadJoyCvars(to buffer: inout String) {
+        #if os(iOS)
+        buffer += "seta j_yaw_axis 2; seta j_pitch_axis 3; seta j_yaw 0; seta j_pitch 0; "
+        buffer += "seta j_side_axis 4; seta j_side 0.25; "
+        #endif
+        buffer += "seta j_forward_axis 1; seta j_forward -2; seta cl_run 1; "
+    }
+
+    func appendEngineCommands(to buffer: inout String) {
+        appendBindingCommands(to: &buffer)
+        appendSDLGamepadJoyCvars(to: &buffer)
         buffer += "\n"
     }
 

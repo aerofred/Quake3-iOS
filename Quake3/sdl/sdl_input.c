@@ -829,6 +829,10 @@ void IN_IosCloseJoystick( void )
 	for ( a = 0; a < MAX_JOYSTICK_AXIS; a++ ) {
 		CL_JoystickEvent( a, 0, Sys_Milliseconds() );
 	}
+
+	/* Touch move stick uses j_yaw_axis 0 (turn) / j_side_axis 4 (strafe with pad). */
+	Cvar_Set( "j_yaw_axis", "0" );
+	Cvar_Set( "j_yaw", "1" );
 }
 
 int Sys_SDLGamepadOpened( void )

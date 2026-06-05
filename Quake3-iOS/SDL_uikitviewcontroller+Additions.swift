@@ -952,10 +952,10 @@ extension SDL_uikitviewcontroller {
         // Append only: CL_ExecuteConsole flushes the whole command buffer and can
         // run deferred +connect before the engine is fully initialized.
         var commands =
-            "j_yaw_axis 0; j_side_axis 4; j_side 0; j_forward_axis 1; j_forward -2; j_yaw 1; cl_run 1; "
+            "j_yaw_axis 0; j_side_axis 4; j_side 0.25; j_forward_axis 1; j_forward -2; j_yaw 1; cl_run 1; "
         commands += "touch_move_sensitivity \(max(0.25, min(3.0, moveSensitivity))); "
         commands += "touch_look_sensitivity \(max(0.25, min(3.0, lookSensitivity))); "
-        GamepadConfig.shared.appendEngineCommands(to: &commands)
+        GamepadConfig.shared.appendBindingCommands(to: &commands)
         Cbuf_AddText(commands)
     }
 
@@ -1810,9 +1810,10 @@ extension SDL_uikitviewcontroller {
 
 extension SDL_uikitviewcontroller: JoystickDelegate {
 
-    /// j_forward_axis = 1, j_yaw_axis = 0 (horizontal stick = turn left/right).
+    /// j_forward_axis = 1; sans manette j_yaw_axis = 0 (horizontal = tourner). Avec manette SDL, horizontal = strafe (axe 4).
     private static let joyAxisForward = 1
     private static let joyAxisYaw = 0
+    private static let joyAxisSide = 4
     private static let joyMoveGain: CGFloat = 1.0
     private static let joyDeadZone: CGFloat = 0.08
     private static let joyResponseExponent: CGFloat = 1.0
@@ -1822,6 +1823,7 @@ extension SDL_uikitviewcontroller: JoystickDelegate {
         let t = Int32(Sys_Milliseconds())
         CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisYaw), 0, t)
         CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisForward), 0, t)
+        CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisSide), 0, t)
     }
 
     private func applyJoystickResponse(_ value: CGFloat) -> CGFloat {
@@ -1837,24 +1839,33 @@ extension SDL_uikitviewcontroller: JoystickDelegate {
     }
 
     func handleJoyStickPosition(x: CGFloat, y: CGFloat) {
-        // SDL gamepad uses axes 1/4 for move and j_yaw_axis=2 for look — avoid axis 0 fights.
-        if Sys_SDLGamepadOpened() > 0 {
-            GamepadInputManager.shared.onScreenMoveJoystickEngaged = false
-            return
-        }
-
-        let yaw = applyJoystickResponse(x)
+        let gamepadOpen = Sys_SDLGamepadOpened() > 0
+        let horizontal = applyJoystickResponse(x)
         let forward = applyJoystickResponse(y)
-        GamepadInputManager.shared.onScreenMoveJoystickEngaged =
+        let engaged =
             abs(x) > SDL_uikitviewcontroller.joyDeadZone || abs(y) > SDL_uikitviewcontroller.joyDeadZone
+        GamepadInputManager.shared.onScreenMoveJoystickEngaged = engaged
+
         let sensitivity = clampedTouchCvar("touch_move_sensitivity")
         let t = Int32(Sys_Milliseconds())
 
         // j_forward=-2, cl_run=1 (see applyTouchJoystickCvars).
         let forwardScaled = -forward * 127.0 * SDL_uikitviewcontroller.joyMoveGain * sensitivity
         let forwardAxis = Int32(max(-127, min(127, forwardScaled.rounded())))
-        let yawAxis = Int32(max(-127, min(127, (-yaw * 127.0 * sensitivity).rounded())))
 
+        if gamepadOpen {
+            // Manette : regard sur stick droit ; stick tactile gauche = strafe (axe 4) + avancer.
+            let sideScaled = Int32(max(-127, min(127, (-horizontal * 127.0 * sensitivity).rounded())))
+            CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisSide), sideScaled, t)
+            CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisForward), forwardAxis, t)
+            if !engaged {
+                CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisSide), 0, t)
+                CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisForward), 0, t)
+            }
+            return
+        }
+
+        let yawAxis = Int32(max(-127, min(127, (-horizontal * 127.0 * sensitivity).rounded())))
         CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisYaw), yawAxis, t)
         CL_JoystickEvent(Int32(SDL_uikitviewcontroller.joyAxisForward), forwardAxis, t)
     }
